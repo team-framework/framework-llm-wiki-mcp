@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.DS_Store
+**/.DS_Store
+
+# Existing source artifacts: the canonical wiki is a separately managed checkout.
+innolive/
+innolive.zip
+2026_08_12_개인별_초안/

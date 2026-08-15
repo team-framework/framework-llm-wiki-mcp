@@ -1,0 +1,20 @@
+services:
+  wiki-mcp:
+    build: .
+    restart: unless-stopped
+    environment:
+      WIKI_ROOT: /wiki
+      HOST: 0.0.0.0
+      PORT: 3100
+      AUTH_MODE: github
+      PUBLIC_BASE_URL: https://framework-wiki.chaeyn.com
+      GITHUB_ORG: team-framework
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:?Set GITHUB_CLIENT_ID in .env}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:?Set GITHUB_CLIENT_SECRET in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://framework-wiki.chaeyn.com}
+    volumes:
+      # The sync process is owned separately. This service never runs git pull.
+      - ${WIKI_HOST_PATH:?Set WIKI_HOST_PATH to the canonical wiki checkout}:/wiki:ro
+    ports:
+      - "127.0.0.1:3100:3100"
