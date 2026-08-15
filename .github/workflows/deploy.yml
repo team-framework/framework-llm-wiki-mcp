@@ -17,7 +17,7 @@ jobs:
   deploy:
     name: Build, test, and deploy
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, framework-wiki-mcp]
     environment: production
 
     steps:
@@ -39,36 +39,16 @@ jobs:
           npm test
           npm run build
 
-      - name: Configure SSH
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      - name: Sync and restart service
         run: |
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-      - name: Sync application files
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        run: |
-          ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
-          rsync -az --delete \
+          app_dir=/home/chaeyn/apps/framework-llm-wiki-mcp
+          install -d -m 700 "$app_dir"
+          rsync -a --delete \
             --exclude '.env' \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude 'dist' \
-            ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
-
-      - name: Restart service
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        run: |
-          ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && docker compose up -d --build --remove-orphans && docker compose ps"
+            ./ "$app_dir/"
+          cd "$app_dir"
+          docker compose up -d --build --remove-orphans
+          docker compose ps
