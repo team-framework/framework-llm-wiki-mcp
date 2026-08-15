@@ -1,4 +1,5 @@
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import formbody from "@fastify/formbody";
 import Fastify from "fastify";
 import { GitHubAuth } from "./auth.js";
 import { createMcpServer } from "./mcp.js";
@@ -11,20 +12,36 @@ const wiki = new WikiService(wikiRoot);
 const auth = new GitHubAuth();
 auth.assertConfigured();
 const app = Fastify({ logger: true });
+await app.register(formbody);
 
 app.addHook("onRequest", async (request, reply) => {
-  if (request.url.startsWith("/health") || request.url.startsWith("/auth/github/")) return;
+  if (request.url.startsWith("/health") || request.url.startsWith("/auth/github/") || request.url.startsWith("/.well-known/") || request.url.startsWith("/oauth/")) return;
   const origin = request.headers.origin;
   if (origin && allowedOrigins.size > 0 && !allowedOrigins.has(origin)) {
     return reply.code(403).send({ error: "Origin is not allowed." });
   }
-  if (!(await auth.authorize(request, reply))) {
+  if (!(await auth.authorize(request))) {
     if (request.url === "/" && !request.headers.authorization) return auth.startLogin(reply);
-    return reply.code(401).send({ error: "Authentication required." });
+    return auth.rejectResourceRequest(reply);
   }
 });
 
 app.get("/health", async () => ({ ok: true, ...(await wiki.status()) }));
+app.get("/.well-known/oauth-protected-resource/mcp", async () => auth.protectedResourceMetadata());
+app.get("/.well-known/oauth-authorization-server", async () => auth.authorizationServerMetadata());
+app.get("/.well-known/oauth-authorization-server/mcp", async () => auth.authorizationServerMetadata());
+app.post("/oauth/register", async (request, reply) => {
+  const clientId = auth.registerClient(request.body);
+  if (!clientId) return reply.code(400).send({ error: "invalid_client_metadata" });
+  return reply.code(201).send({
+    client_id: clientId,
+    client_id_issued_at: Math.floor(Date.now() / 1000),
+    redirect_uris: (request.body as { redirect_uris?: string[] } | undefined)?.redirect_uris,
+    token_endpoint_auth_method: "none"
+  });
+});
+app.get("/oauth/authorize", async (request, reply) => auth.startAuthorization(request, reply));
+app.post("/oauth/token", async (request, reply) => auth.exchangeToken(request, reply));
 app.get("/auth/github/login", async (_request, reply) => auth.startLogin(reply));
 app.get("/auth/github/callback", async (request, reply) => auth.finishLogin(request, reply));
 app.post("/auth/github/logout", async (_request, reply) => auth.logout(reply));
