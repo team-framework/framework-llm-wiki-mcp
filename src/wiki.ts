@@ -15,6 +15,17 @@ export type Note = {
   links: string[];
 };
 
+export type ResolvedLink = {
+  link: string;
+  status: "resolved" | "ambiguous" | "unresolved";
+  path?: string;
+  candidates?: string[];
+};
+
+export type ResolvedNote = Note & {
+  resolved_links: ResolvedLink[];
+};
+
 export type SearchOptions = {
   domain?: string;
   owner?: string;
@@ -46,13 +57,15 @@ export class WikiService {
       .map(({ note, score }) => this.summary(note, score));
   }
 
-  async getNote(relativePath: string): Promise<Note> {
+  async getNote(relativePath: string): Promise<ResolvedNote> {
     const normalized = relativePath.replace(/^\/+/, "");
     const fullPath = path.resolve(this.root, normalized);
     if (!fullPath.startsWith(`${path.resolve(this.root)}${path.sep}`) || path.extname(fullPath) !== ".md") {
       throw new Error("Invalid wiki note path.");
     }
-    return this.readFile(fullPath);
+    const note = await this.readFile(fullPath);
+    const notes = await this.listNotes();
+    return { ...note, resolved_links: this.resolveLinks(note.links, notes) };
   }
 
   async status() {
@@ -125,6 +138,37 @@ export class WikiService {
       excerpt: text.slice(0, 280)
     };
   }
+
+  private resolveLinks(links: string[], notes: Note[]): ResolvedLink[] {
+    return links.map((link) => {
+      const target = link.split("#", 1)[0].trim();
+      const normalizedTarget = normalizeNoteReference(target);
+      const candidates = notes
+        .filter((note) => {
+          const normalizedPath = normalizeNoteReference(note.path);
+          const normalizedBaseName = normalizeNoteReference(path.basename(note.path, ".md"));
+          const normalizedTitle = normalizeNoteReference(note.title);
+          return normalizedPath === normalizedTarget
+            || normalizedBaseName === normalizedTarget
+            || normalizedTitle === normalizedTarget;
+        })
+        .map((note) => note.path)
+        .sort((a, b) => a.localeCompare(b, "ko"));
+
+      if (candidates.length === 1) return { link, status: "resolved", path: candidates[0] };
+      if (candidates.length > 1) return { link, status: "ambiguous", candidates };
+      return { link, status: "unresolved" };
+    });
+  }
+}
+
+function normalizeNoteReference(value: string) {
+  return value
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\.md$/i, "")
+    .trim()
+    .toLocaleLowerCase();
 }
 
 function includesMetadataValue(value: unknown, expected: string) {
