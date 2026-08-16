@@ -23,7 +23,7 @@ export function createMcpServer(wiki: WikiService) {
 
   server.registerTool("read_note", {
     title: "Read Wiki Note",
-    description: "Read one exact Markdown note returned by search_wiki.",
+    description: "Read one exact Markdown note returned by search_wiki. The response includes resolved_links so agents can traverse linked notes without guessing paths.",
     inputSchema: { path: z.string().min(1) }
   }, async ({ path }) => text(await wiki.getNote(path)));
 
