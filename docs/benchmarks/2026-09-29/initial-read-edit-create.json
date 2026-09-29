@@ -1,0 +1,344 @@
+{
+  "measured_at": "2026-09-29T11:04:39.792Z",
+  "corpus_commit": "ed4256e0",
+  "note_count": 157,
+  "corpus_hash": "34842b9d109b6dab42711b8cde21b858dd94c58668668fc36ec4c1ba57d60c95",
+  "tokenizer": "o200k_base",
+  "scope": "Local tokenizer counts of tool payloads and generated Markdown/patch text; excludes prompts, model reasoning, billing, embeddings and network latency.",
+  "read_scenario": "Fixed 8 topic queries. Legacy search_wiki (10 results) plus read_note for first 3 full notes with duplicated content/body and pretty JSON; new get_context (8 sections, 12000 evidence JSON chars). Ranking differs; semantic relevance has no human ground-truth in this measurement.",
+  "write_scenario": "First 20 largest current notes with at least 3 substantive sections. Same-source synthetic one-section amendment: legacy full note read plus regenerated Markdown versus outline + exact section read + CAS patch. No corpus files are changed.",
+  "creation_scenario": "Creating new knowledge still requires the complete new Markdown text. The create request adds small protocol overhead; retrieval savings are measured separately.",
+  "reads": {
+    "samples": 8,
+    "before_tokens": 210278,
+    "after_tokens": 47985,
+    "reduction_percent": 77.18,
+    "median_reduction_percent": 75.67,
+    "tasks": [
+      {
+        "task": 1,
+        "query": "WebRTC 연결",
+        "before_tokens": 25132,
+        "after_tokens": 7444,
+        "baseline_full_notes": 3,
+        "evidence_sections": 6,
+        "evidence_chars": 11913,
+        "truncated": true,
+        "retrieval": {
+          "mode": "lexical",
+          "semantic_status": "not_configured",
+          "stale_hits": 0
+        },
+        "reduction_percent": 70.38
+      },
+      {
+        "task": 2,
+        "query": "JWT 인증",
+        "before_tokens": 29541,
+        "after_tokens": 7188,
+        "baseline_full_notes": 3,
+        "evidence_sections": 7,
+        "evidence_chars": 11871,
+        "truncated": true,
+        "retrieval": {
+          "mode": "lexical",
+          "semantic_status": "not_configured",
+          "stale_hits": 0
+        },
+        "reduction_percent": 75.67
+      },
+      {
+        "task": 3,
+        "query": "GPU 운영",
+        "before_tokens": 15543,
+        "after_tokens": 4411,
+        "baseline_full_notes": 3,
+        "evidence_sections": 8,
+        "evidence_chars": 10128,
+        "truncated": false,
+        "retrieval": {
+          "mode": "lexical",
+          "semantic_status": "not_configured",
+          "stale_hits": 0
+        },
+        "reduction_percent": 71.62
+      },
+      {
+        "task": 4,
+        "query": "CI/CD 배포",
+        "before_tokens": 19122,
+        "after_tokens": 4584,
+        "baseline_full_notes": 3,
+        "evidence_sections": 8,
+        "evidence_chars": 9919,
+        "truncated": false,
+        "retrieval": {
+          "mode": "lexical",
+          "semantic_status": "not_configured",
+          "stale_hits": 0
+        },
+        "reduction_percent": 76.03
+      },
+      {
+        "task": 5,
+        "query": "성능 평가",
+        "before_tokens": 23606,
+        "after_tokens": 4884,
+        "baseline_full_notes": 3,
+        "evidence_sections": 8,
+        "evidence_chars": 10335,
+        "truncated": false,
+        "retrieval": {
+          "mode": "lexical",
+          "semantic_status": "not_configured",
+          "stale_hits": 0
+        },
+        "reduction_percent": 79.31
+      },
+      {
+        "task": 6,
+        "query": "권한 설정",
+        "before_tokens": 22945,
+        "after_tokens": 6999,
+        "baseline_full_notes": 3,
+        "evidence_sections": 7,
+        "evidence_chars": 11514,
+        "truncated": true,
+        "retrieval": {
+          "mode": "lexical",
+          "semantic_status": "not_configured",
+          "stale_hits": 0
+        },
+        "reduction_percent": 69.5
+      },
+      {
+        "task": 7,
+        "query": "장애 복구",
+        "before_tokens": 46481,
+        "after_tokens": 5537,
+        "baseline_full_notes": 3,
+        "evidence_sections": 8,
+        "evidence_chars": 11714,
+        "truncated": false,
+        "retrieval": {
+          "mode": "lexical",
+          "semantic_status": "not_configured",
+          "stale_hits": 0
+        },
+        "reduction_percent": 88.09
+      },
+      {
+        "task": 8,
+        "query": "API 계약",
+        "before_tokens": 27908,
+        "after_tokens": 6938,
+        "baseline_full_notes": 3,
+        "evidence_sections": 5,
+        "evidence_chars": 11328,
+        "truncated": true,
+        "retrieval": {
+          "mode": "lexical",
+          "semantic_status": "not_configured",
+          "stale_hits": 0
+        },
+        "reduction_percent": 75.14
+      }
+    ]
+  },
+  "updates": {
+    "samples": 20,
+    "before_tokens": 406787,
+    "after_tokens": 93600,
+    "reduction_percent": 76.99,
+    "median_reduction_percent": 74.99,
+    "tasks": [
+      {
+        "task": 1,
+        "note_chars": 34443,
+        "target_section_chars": 1398,
+        "before_tokens": 49815,
+        "after_tokens": 7100,
+        "read_truncated": false,
+        "unchanged_chars": 33045
+      },
+      {
+        "task": 2,
+        "note_chars": 18953,
+        "target_section_chars": 516,
+        "before_tokens": 33547,
+        "after_tokens": 3497,
+        "read_truncated": false,
+        "unchanged_chars": 18437
+      },
+      {
+        "task": 3,
+        "note_chars": 18561,
+        "target_section_chars": 406,
+        "before_tokens": 35520,
+        "after_tokens": 8883,
+        "read_truncated": false,
+        "unchanged_chars": 18155
+      },
+      {
+        "task": 4,
+        "note_chars": 15712,
+        "target_section_chars": 872,
+        "before_tokens": 23397,
+        "after_tokens": 5147,
+        "read_truncated": false,
+        "unchanged_chars": 14840
+      },
+      {
+        "task": 5,
+        "note_chars": 15606,
+        "target_section_chars": 2313,
+        "before_tokens": 16968,
+        "after_tokens": 3771,
+        "read_truncated": false,
+        "unchanged_chars": 13293
+      },
+      {
+        "task": 6,
+        "note_chars": 12833,
+        "target_section_chars": 2708,
+        "before_tokens": 19330,
+        "after_tokens": 5159,
+        "read_truncated": false,
+        "unchanged_chars": 10125
+      },
+      {
+        "task": 7,
+        "note_chars": 12675,
+        "target_section_chars": 466,
+        "before_tokens": 21429,
+        "after_tokens": 4402,
+        "read_truncated": false,
+        "unchanged_chars": 12209
+      },
+      {
+        "task": 8,
+        "note_chars": 12494,
+        "target_section_chars": 1410,
+        "before_tokens": 18710,
+        "after_tokens": 5045,
+        "read_truncated": false,
+        "unchanged_chars": 11084
+      },
+      {
+        "task": 9,
+        "note_chars": 11528,
+        "target_section_chars": 1797,
+        "before_tokens": 20272,
+        "after_tokens": 5191,
+        "read_truncated": false,
+        "unchanged_chars": 9731
+      },
+      {
+        "task": 10,
+        "note_chars": 11518,
+        "target_section_chars": 906,
+        "before_tokens": 17355,
+        "after_tokens": 4033,
+        "read_truncated": false,
+        "unchanged_chars": 10612
+      },
+      {
+        "task": 11,
+        "note_chars": 11464,
+        "target_section_chars": 1746,
+        "before_tokens": 18764,
+        "after_tokens": 3873,
+        "read_truncated": false,
+        "unchanged_chars": 9718
+      },
+      {
+        "task": 12,
+        "note_chars": 9794,
+        "target_section_chars": 848,
+        "before_tokens": 15944,
+        "after_tokens": 4087,
+        "read_truncated": false,
+        "unchanged_chars": 8946
+      },
+      {
+        "task": 13,
+        "note_chars": 9194,
+        "target_section_chars": 425,
+        "before_tokens": 18150,
+        "after_tokens": 5069,
+        "read_truncated": false,
+        "unchanged_chars": 8769
+      },
+      {
+        "task": 14,
+        "note_chars": 9013,
+        "target_section_chars": 719,
+        "before_tokens": 17471,
+        "after_tokens": 3915,
+        "read_truncated": false,
+        "unchanged_chars": 8294
+      },
+      {
+        "task": 15,
+        "note_chars": 8773,
+        "target_section_chars": 544,
+        "before_tokens": 16019,
+        "after_tokens": 3733,
+        "read_truncated": false,
+        "unchanged_chars": 8229
+      },
+      {
+        "task": 16,
+        "note_chars": 8364,
+        "target_section_chars": 961,
+        "before_tokens": 12995,
+        "after_tokens": 4400,
+        "read_truncated": false,
+        "unchanged_chars": 7403
+      },
+      {
+        "task": 17,
+        "note_chars": 8336,
+        "target_section_chars": 2489,
+        "before_tokens": 14717,
+        "after_tokens": 4988,
+        "read_truncated": false,
+        "unchanged_chars": 5847
+      },
+      {
+        "task": 18,
+        "note_chars": 7836,
+        "target_section_chars": 1017,
+        "before_tokens": 13130,
+        "after_tokens": 3624,
+        "read_truncated": false,
+        "unchanged_chars": 6819
+      },
+      {
+        "task": 19,
+        "note_chars": 7743,
+        "target_section_chars": 488,
+        "before_tokens": 11515,
+        "after_tokens": 3534,
+        "read_truncated": false,
+        "unchanged_chars": 7255
+      },
+      {
+        "task": 20,
+        "note_chars": 7594,
+        "target_section_chars": 1109,
+        "before_tokens": 11739,
+        "after_tokens": 4149,
+        "read_truncated": false,
+        "unchanged_chars": 6485
+      }
+    ]
+  },
+  "creations": {
+    "samples": 20,
+    "before_tokens": 54898,
+    "after_tokens": 57175,
+    "reduction_percent": -4.15,
+    "median_reduction_percent": -4.49
+  }
+}

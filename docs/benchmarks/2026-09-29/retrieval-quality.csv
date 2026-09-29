@@ -1,0 +1,4 @@
+method,questions,required_facts,retrieved_facts,complete_questions,payload_tokens,reduction_percent
+legacy,10,11,6,5,278972,0
+lexical,10,11,8,7,54448,80.48
+hybrid,10,11,9,8,54502,80.46

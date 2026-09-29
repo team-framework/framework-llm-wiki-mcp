@@ -1,0 +1,38 @@
+{
+  "name": "framework-llm-wiki-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "check": "tsc --noEmit",
+    "start": "node .next/standalone/server.js"
+  },
+  "dependencies": {
+    "fumadocs-core": "16.15.15",
+    "fumadocs-ui": "16.15.15",
+    "github-slugger": "^2.0.0",
+    "lucide-react": "^1.48.0",
+    "mdast-util-to-string": "^4.0.0",
+    "next": "16.3.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5.9.3"
+  }
+}

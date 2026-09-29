@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "status": "final_requested",
+  "snapshot_started_at": "2026-09-29T12:44:59.535241+00:00",
+  "snapshot_completed_at": "2026-09-29T12:44:59.777372+00:00",
+  "selection": {
+    "method": "first_metadata_descendant_graph",
+    "files_selected": 5,
+    "files_with_usage": 5,
+    "root_files": 1,
+    "subagent_files": 4
+  },
+  "method": "Take the last cumulative total_token_usage once per distinct file; never sum cumulative event notifications. Output includes reasoning output.",
+  "usage": {
+    "input_tokens": 130795041,
+    "cached_input_tokens": 127643136,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 651207,
+    "reasoning_output_tokens": 258531,
+    "total_tokens": 131446248,
+    "uncached_input_tokens": 3151905,
+    "uncached_input_plus_output_tokens": 3803112
+  },
+  "by_model": [
+    {
+      "model": "gpt-6-astra",
+      "files": 2,
+      "usage": {
+        "input_tokens": 67981218,
+        "cached_input_tokens": 66450688,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 260155,
+        "reasoning_output_tokens": 68393,
+        "total_tokens": 68241373,
+        "uncached_input_tokens": 1530530,
+        "uncached_input_plus_output_tokens": 1790685
+      },
+      "api_equivalent_estimate": {
+        "standard_usd": 94.763738,
+        "fast_usd": 189.527476,
+        "user_confirmed_tier": "standard",
+        "user_confirmed_tier_usd": 94.763738
+      }
+    },
+    {
+      "model": "gpt-6-luna",
+      "files": 1,
+      "usage": {
+        "input_tokens": 39692040,
+        "cached_input_tokens": 38895488,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 242498,
+        "reasoning_output_tokens": 144356,
+        "total_tokens": 39934538,
+        "uncached_input_tokens": 796552,
+        "uncached_input_plus_output_tokens": 1039050
+      },
+      "api_equivalent_estimate": {
+        "standard_usd": 0.58985908,
+        "fast_usd": 1.17971816,
+        "user_confirmed_tier": "fast",
+        "user_confirmed_tier_usd": 1.17971816
+      }
+    },
+    {
+      "model": "gpt-6-sol",
+      "files": 2,
+      "usage": {
+        "input_tokens": 23121783,
+        "cached_input_tokens": 22296960,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 148554,
+        "reasoning_output_tokens": 45782,
+        "total_tokens": 23270337,
+        "uncached_input_tokens": 824823,
+        "uncached_input_plus_output_tokens": 973377
+      },
+      "api_equivalent_estimate": {
+        "standard_usd": 7.594578,
+        "fast_usd": 15.189156,
+        "user_confirmed_tier": "standard",
+        "user_confirmed_tier_usd": 7.594578
+      }
+    }
+  ],
+  "by_role": [
+    {
+      "role": "root",
+      "files": 1,
+      "usage": {
+        "input_tokens": 43571272,
+        "cached_input_tokens": 42664448,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 151411,
+        "reasoning_output_tokens": 37099,
+        "total_tokens": 43722683,
+        "uncached_input_tokens": 906824,
+        "uncached_input_plus_output_tokens": 1058235
+      }
+    },
+    {
+      "role": "subagent",
+      "files": 4,
+      "usage": {
+        "input_tokens": 87223769,
+        "cached_input_tokens": 84978688,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 499796,
+        "reasoning_output_tokens": 221432,
+        "total_tokens": 87723565,
+        "uncached_input_tokens": 2245081,
+        "uncached_input_plus_output_tokens": 2744877
+      }
+    }
+  ],
+  "observations": {
+    "latest_usage_at": "2026-09-29T12:44:13.769000+00:00",
+    "oldest_last_usage_at": "2026-09-29T10:42:51.944000+00:00",
+    "token_count_events": 1113,
+    "distinct_cumulative_updates": 1028,
+    "incomplete_tail_lines": 0,
+    "max_request_input_tokens": 225145,
+    "missing_request_input_observations": 0,
+    "all_observed_requests_within_short_context": true,
+    "observed_service_tiers": []
+  },
+  "pricing": {
+    "source": "https://developers.openai.com/api/docs/pricing",
+    "context_source": "https://developers.openai.com/api/docs/models/gpt-6-astra",
+    "verified_date": "2026-09-29",
+    "currency": "USD",
+    "unit": "per_1m_tokens",
+    "short_context_input_limit": 272000,
+    "fast_multiplier": 2,
+    "standard_short": {
+      "gpt-6-astra": {
+        "input": "10",
+        "cached_input": "1",
+        "output": "50"
+      },
+      "gpt-6-sol": {
+        "input": "2",
+        "cached_input": "0.2",
+        "output": "10"
+      },
+      "gpt-6-luna": {
+        "input": "0.1",
+        "cached_input": "0.01",
+        "output": "0.5"
+      }
+    }
+  },
+  "api_equivalent_estimate": {
+    "standard_usd": 102.94817508,
+    "fast_usd": 205.89635016,
+    "status": "estimated",
+    "user_confirmed_tiers_usd": 103.53803416
+  },
+  "limitations": [
+    "This is an API token-price equivalent, not a ChatGPT OAuth charge or invoice.",
+    "Standard and Fast totals are all-model comparison scenarios. The user-confirmed estimate applies Fast only to Luna and Standard to Astra and Sol; this tier assignment comes from the user, not the logs.",
+    "Cached input is included in input; reasoning output is included in output and is not added again.",
+    "Active files are sampled sequentially; rerun after work finishes. --final does not stop or verify process completion.",
+    "Tool fees, hosting, embeddings, taxes, data-residency uplift and external Hermes inference are excluded.",
+    "Token totals describe this implementation session, not production wiki users or retrieval benchmark payloads."
+  ],
+  "user_confirmed_execution": {
+    "source": "user_followup",
+    "confirmed_on": "2026-09-29",
+    "tiers": {
+      "gpt-6-astra": "standard",
+      "gpt-6-sol": "standard",
+      "gpt-6-luna": "fast"
+    },
+    "note": "User clarified that only Luna ran in Fast mode. This supplements the snapshot; observed service tiers remain unavailable in the logs."
+  }
+}

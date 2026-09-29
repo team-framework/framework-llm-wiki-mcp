@@ -39,16 +39,31 @@ jobs:
           npm test
           npm run build
 
+      - name: Build document web
+        run: |
+          npm --prefix web ci
+          npm --prefix web run build
+
       - name: Sync and restart service
         run: |
           app_dir=/home/chaeyn/apps/framework-llm-wiki-mcp
+          export WIKI_MEASUREMENT_RELEASE="$(git rev-parse HEAD)"
           install -d -m 700 "$app_dir"
           rsync -a --delete \
             --exclude '.env' \
+            --exclude '.env.*' \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude 'dist' \
+            --exclude '.next' \
+            --exclude '__pycache__' \
             ./ "$app_dir/"
           cd "$app_dir"
+          test -s /home/chaeyn/apps/framework-wiki-inference/.env
+          install -m 600 deploy/hermes/wiki_bridge.py /home/chaeyn/apps/framework-wiki-inference/wiki_bridge.py
+          install -D -m 644 deploy/hermes/framework-wiki-inference.service /home/chaeyn/.config/systemd/user/framework-wiki-inference.service
+          systemctl --user daemon-reload
+          systemctl --user enable --now framework-wiki-inference.service
+          systemctl --user restart framework-wiki-inference.service
           docker compose up -d --build --remove-orphans
           docker compose ps

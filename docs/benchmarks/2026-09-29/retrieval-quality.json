@@ -1,0 +1,533 @@
+{
+  "schema_version": 1,
+  "measured_at": "2026-09-29T12:08:15.088Z",
+  "completed_at": "2026-09-29T12:08:16.934Z",
+  "corpus": {
+    "git_commit": null,
+    "declared_commit": "ed4256e0625b4e63a1a4d8d90bf73cfc373ad9f3",
+    "content_manifest_sha256": "34842b9d109b6dab42711b8cde21b858dd94c58668668fc36ec4c1ba57d60c95",
+    "notes": 157
+  },
+  "code": {
+    "git_commit": "46aab4d7c2f449b1ad39eaa67f0170ef0582bbe0",
+    "dirty": true,
+    "file_sha256": {
+      "scripts/evaluate-retrieval.ts": "fc68fa504c15c0173fbf18e926ef12d83e26a0ab1f291d3b57140761610e39aa",
+      "src/wiki.ts": "64024f9e7376bf53eb47cde8cdece7a6d296cf9e66eef694f81dbbf8a2e74a86",
+      "src/sections.ts": "c89e519436b8de3ba8f6b248cc90e34c31972e22b6a260afa00f23c4e3b8c203",
+      "src/vector.ts": "dd1f58cb4ade17b010cef619e59b6c4a9602630533f6c638728280054fb7f1ad"
+    }
+  },
+  "gold_file_sha256": "e0c5319d3d7bf0ad992083fa94fb9d0b8fdd0e9d56fa8a3a3b71730ccbad61c9",
+  "node_version": "v24.19.0",
+  "vector": {
+    "collection": "framework_wiki_eval_ed4256_69388ddcb7d94545f534612a",
+    "signature": "69388ddcb7d94545f534612a37ca9c5b792a5c7fd73733fff7b5ba0368eb0ecb",
+    "model": "intfloat/multilingual-e5-small",
+    "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+    "schema": "e5-small-480-overlap48-v1",
+    "sections": 1475,
+    "manifest_verified": true
+  },
+  "tokenizer": {
+    "name": "o200k_base",
+    "package": "gpt-tokenizer",
+    "version": "4.0.0"
+  },
+  "protocol": {
+    "legacy": "fa57270 scoring; search limit5 + top3 full-note reads with content/body and pretty JSON; concatenate tool payloads with one newline",
+    "current": "first context page only; limit8; maxChars12000; compact JSON; per-query includeHistory",
+    "scoring": "each expected fact requires any allowed source path AND any allowed literal needle within the same returned source; case-sensitive",
+    "nondeterminism": "opaque random next_cursor values can change tokenizer counts slightly between identical retrieval runs",
+    "timing": "local service calls, cold and warm caches mixed; excludes token counting; not HTTP/provider latency",
+    "exclusions": [
+      "prompts",
+      "final answers",
+      "continuation costs",
+      "embedding cost",
+      "provider billing"
+    ],
+    "vector_generation": "manifest-verified immutable collection queried directly; read-only adapter may report starting because no writer sync runs; actual mode/status/stale hits retained per row"
+  },
+  "summary": [
+    {
+      "mode": "legacy",
+      "questions": 10,
+      "facts_found": 6,
+      "facts_required": 11,
+      "complete_questions": 5,
+      "payload_tokens": 278972,
+      "reduction_percent": 0,
+      "truncated_questions": 0
+    },
+    {
+      "mode": "lexical",
+      "questions": 10,
+      "facts_found": 8,
+      "facts_required": 11,
+      "complete_questions": 7,
+      "payload_tokens": 54448,
+      "reduction_percent": 80.48,
+      "truncated_questions": 6
+    },
+    {
+      "mode": "hybrid",
+      "questions": 10,
+      "facts_found": 9,
+      "facts_required": 11,
+      "complete_questions": 8,
+      "payload_tokens": 54502,
+      "reduction_percent": 80.46,
+      "truncated_questions": 9
+    }
+  ],
+  "rows": [
+    {
+      "id": "q1",
+      "mode": "legacy",
+      "score": [
+        false
+      ],
+      "tokens": 19682,
+      "latency_ms": 12.475041000000033,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q1",
+      "mode": "lexical",
+      "score": [
+        true
+      ],
+      "tokens": 5809,
+      "latency_ms": 31.031957999999975,
+      "truncated": true,
+      "evidence_count": 7,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q1",
+      "mode": "hybrid",
+      "score": [
+        true
+      ],
+      "tokens": 5727,
+      "latency_ms": 96.72683400000005,
+      "truncated": true,
+      "evidence_count": 7,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q2",
+      "mode": "legacy",
+      "score": [
+        false
+      ],
+      "tokens": 35229,
+      "latency_ms": 21.111291999999935,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q2",
+      "mode": "lexical",
+      "score": [
+        false
+      ],
+      "tokens": 5691,
+      "latency_ms": 26.62616700000001,
+      "truncated": true,
+      "evidence_count": 6,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q2",
+      "mode": "hybrid",
+      "score": [
+        false
+      ],
+      "tokens": 5324,
+      "latency_ms": 78.46441699999991,
+      "truncated": true,
+      "evidence_count": 7,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q3",
+      "mode": "legacy",
+      "score": [
+        true
+      ],
+      "tokens": 41284,
+      "latency_ms": 12.078459000000066,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q3",
+      "mode": "lexical",
+      "score": [
+        true
+      ],
+      "tokens": 5453,
+      "latency_ms": 26.117209000000003,
+      "truncated": true,
+      "evidence_count": 6,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q3",
+      "mode": "hybrid",
+      "score": [
+        true
+      ],
+      "tokens": 5338,
+      "latency_ms": 73.63525000000004,
+      "truncated": true,
+      "evidence_count": 6,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q4",
+      "mode": "legacy",
+      "score": [
+        true
+      ],
+      "tokens": 19439,
+      "latency_ms": 10.611915999999951,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q4",
+      "mode": "lexical",
+      "score": [
+        true
+      ],
+      "tokens": 5589,
+      "latency_ms": 42.40337499999998,
+      "truncated": true,
+      "evidence_count": 8,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q4",
+      "mode": "hybrid",
+      "score": [
+        true
+      ],
+      "tokens": 5274,
+      "latency_ms": 94.37766699999997,
+      "truncated": true,
+      "evidence_count": 6,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q5",
+      "mode": "legacy",
+      "score": [
+        true
+      ],
+      "tokens": 43059,
+      "latency_ms": 14.507082999999966,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q5",
+      "mode": "lexical",
+      "score": [
+        true
+      ],
+      "tokens": 6014,
+      "latency_ms": 41.47687499999995,
+      "truncated": true,
+      "evidence_count": 6,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q5",
+      "mode": "hybrid",
+      "score": [
+        true
+      ],
+      "tokens": 5716,
+      "latency_ms": 226.1009590000001,
+      "truncated": true,
+      "evidence_count": 5,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q6",
+      "mode": "legacy",
+      "score": [
+        false
+      ],
+      "tokens": 20429,
+      "latency_ms": 17.82120900000018,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q6",
+      "mode": "lexical",
+      "score": [
+        false
+      ],
+      "tokens": 5327,
+      "latency_ms": 41.495125000000144,
+      "truncated": false,
+      "evidence_count": 8,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q6",
+      "mode": "hybrid",
+      "score": [
+        false
+      ],
+      "tokens": 5569,
+      "latency_ms": 172.46958400000017,
+      "truncated": true,
+      "evidence_count": 6,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q7",
+      "mode": "legacy",
+      "score": [
+        false
+      ],
+      "tokens": 22493,
+      "latency_ms": 14.666042000000061,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q7",
+      "mode": "lexical",
+      "score": [
+        true
+      ],
+      "tokens": 4900,
+      "latency_ms": 32.04495799999995,
+      "truncated": false,
+      "evidence_count": 8,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q7",
+      "mode": "hybrid",
+      "score": [
+        true
+      ],
+      "tokens": 5538,
+      "latency_ms": 75.9279170000002,
+      "truncated": true,
+      "evidence_count": 7,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q8",
+      "mode": "legacy",
+      "score": [
+        true
+      ],
+      "tokens": 28475,
+      "latency_ms": 11.196166000000176,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q8",
+      "mode": "lexical",
+      "score": [
+        true
+      ],
+      "tokens": 4874,
+      "latency_ms": 43.13316699999996,
+      "truncated": false,
+      "evidence_count": 8,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q8",
+      "mode": "hybrid",
+      "score": [
+        true
+      ],
+      "tokens": 5609,
+      "latency_ms": 103.63195900000005,
+      "truncated": true,
+      "evidence_count": 7,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q9",
+      "mode": "legacy",
+      "score": [
+        true
+      ],
+      "tokens": 25025,
+      "latency_ms": 11.823041999999987,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q9",
+      "mode": "lexical",
+      "score": [
+        true
+      ],
+      "tokens": 4935,
+      "latency_ms": 38.99516700000004,
+      "truncated": false,
+      "evidence_count": 8,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q9",
+      "mode": "hybrid",
+      "score": [
+        true
+      ],
+      "tokens": 5090,
+      "latency_ms": 166.43149999999991,
+      "truncated": false,
+      "evidence_count": 8,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q10",
+      "mode": "legacy",
+      "score": [
+        false,
+        true
+      ],
+      "tokens": 23857,
+      "latency_ms": 13.017041999999947,
+      "truncated": false,
+      "evidence_count": 3,
+      "retrieval": null
+    },
+    {
+      "id": "q10",
+      "mode": "lexical",
+      "score": [
+        true,
+        false
+      ],
+      "tokens": 5856,
+      "latency_ms": 55.841499999999996,
+      "truncated": true,
+      "evidence_count": 7,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "id": "q10",
+      "mode": "hybrid",
+      "score": [
+        true,
+        true
+      ],
+      "tokens": 5317,
+      "latency_ms": 101.84116700000004,
+      "truncated": true,
+      "evidence_count": 5,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "starting",
+        "stale_hits": 0
+      }
+    }
+  ],
+  "status": "pinned_corpus_verified",
+  "measurement_type": "offline_replay",
+  "supersedes": "retrieval-quality-mixed-superseded.json",
+  "interpretation": "Compact lexical retrieval accounts for the measured token reduction. Hybrid retrieves one additional required fact while using 54 more payload tokens than lexical in this run. This small purposive benchmark does not measure billing or actual user retention."
+}
