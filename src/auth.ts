@@ -4,10 +4,10 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 const cookieName = "framework_wiki_session";
 const stateCookieName = "framework_wiki_oauth_state";
 const oneHour = 60 * 60 * 1000;
-const thirtyDays = 30 * 24 * oneHour;
+const oneDay = 24 * oneHour;
 const tenMinutes = 10 * 60 * 1000;
 
-type Session = { login: string; expiresAt: number };
+type Session = { login: string; expiresAt: number; type?: "browser_session" };
 type GitHubMembership = { state: string; role: string };
 type RegisteredClient = { redirectUris: string[]; issuedAt: number };
 type AuthorizationRequest = {
@@ -19,9 +19,9 @@ type AuthorizationRequest = {
   scope?: string;
   expiresAt: number;
 };
-type AuthorizationCode = AuthorizationRequest & { login: string; type: "authorization_code" };
+type AuthorizationCode = AuthorizationRequest & { login: string; reauthenticateAt: number; type: "authorization_code" };
 type AccessToken = { login: string; audience: string; scope?: string; expiresAt: number; type: "access_token" };
-type RefreshToken = { login: string; audience: string; scope?: string; expiresAt: number; type: "refresh_token" };
+type RefreshToken = { login: string; audience: string; scope?: string; expiresAt: number; reauthenticateAt: number; type: "refresh_token" };
 
 export class GitHubAuth {
   readonly clientId = process.env.GITHUB_CLIENT_ID;
@@ -30,6 +30,8 @@ export class GitHubAuth {
   readonly publicUrl = (process.env.PUBLIC_BASE_URL ?? "https://framework-wiki.chaeyn.com").replace(/\/$/, "");
   readonly organization = process.env.GITHUB_ORG ?? "team-framework";
   private readonly usedAuthorizationCodes = new Set<string>();
+
+  constructor(private readonly now: () => number = Date.now) {}
 
   get enabled() {
     return process.env.AUTH_MODE !== "disabled";
@@ -63,7 +65,10 @@ export class GitHubAuth {
     if (bearer) return this.verifyAccessToken(bearer)?.login ?? null;
     const session = this.readCookie(request, cookieName);
     const payload = session && this.verify<Session>(session);
-    return payload && payload.expiresAt > Date.now() ? payload.login : null;
+    const now = this.now();
+    // Existing one-hour browser cookies remain valid; other signed OAuth artifacts are not cookies.
+    return payload && (payload.type === undefined || payload.type === "browser_session") && typeof payload.login === "string"
+      && Number.isFinite(payload.expiresAt) && payload.expiresAt > now && payload.expiresAt <= now + oneHour ? payload.login : null;
   }
 
   async authorize(request: FastifyRequest) {
@@ -97,7 +102,7 @@ export class GitHubAuth {
       ? (input as { redirect_uris: unknown[] }).redirect_uris.filter((value): value is string => typeof value === "string")
       : [];
     if (redirectUris.length === 0 || redirectUris.some((uri) => !isSafeRedirectUri(uri))) return null;
-    return this.sign<RegisteredClient>({ redirectUris, issuedAt: Date.now() });
+    return this.sign<RegisteredClient>({ redirectUris, issuedAt: this.now() });
   }
 
   startAuthorization(request: FastifyRequest, reply: FastifyReply) {
@@ -114,7 +119,7 @@ export class GitHubAuth {
       state: query.state,
       resource: query.resource,
       scope: query.scope,
-      expiresAt: Date.now() + tenMinutes
+      expiresAt: this.now() + tenMinutes
     });
     return this.startGitHubLogin(reply, { kind: "oauth", authorization });
   }
@@ -124,18 +129,18 @@ export class GitHubAuth {
     if (body.grant_type === "authorization_code") {
       const code = body.code;
       const authorization = code && this.verify<AuthorizationCode>(code);
-      if (!code || !authorization || authorization.type !== "authorization_code" || authorization.expiresAt < Date.now() || this.usedAuthorizationCodes.has(code) || body.client_id !== authorization.clientId || body.redirect_uri !== authorization.redirectUri || !body.code_verifier || !safeEqual(pkceChallenge(body.code_verifier), authorization.codeChallenge)) {
+      if (!code || !authorization || authorization.type !== "authorization_code" || authorization.expiresAt <= this.now() || !this.validReauthenticationDeadline(authorization.reauthenticateAt) || this.usedAuthorizationCodes.has(code) || body.client_id !== authorization.clientId || body.redirect_uri !== authorization.redirectUri || !body.code_verifier || !safeEqual(pkceChallenge(body.code_verifier), authorization.codeChallenge)) {
         return reply.code(400).send({ error: "invalid_grant", error_description: "Authorization code validation failed." });
       }
       this.usedAuthorizationCodes.add(code);
-      return reply.send(this.issueTokens(authorization.login, authorization.resource ?? this.resourceUrl, authorization.scope));
+      return reply.send(this.issueTokens(authorization.login, authorization.resource ?? this.resourceUrl, authorization.scope, authorization.reauthenticateAt));
     }
     if (body.grant_type === "refresh_token") {
       const refresh = body.refresh_token && this.verify<RefreshToken>(body.refresh_token);
-      if (!refresh || refresh.type !== "refresh_token" || refresh.expiresAt < Date.now() || refresh.audience !== this.resourceUrl) {
-        return reply.code(400).send({ error: "invalid_grant", error_description: "Refresh token validation failed." });
+      if (!refresh || refresh.type !== "refresh_token" || refresh.expiresAt <= this.now() || refresh.audience !== this.resourceUrl || !this.validReauthenticationDeadline(refresh.reauthenticateAt) || refresh.expiresAt !== refresh.reauthenticateAt) {
+        return reply.code(400).send({ error: "invalid_grant", error_description: "Refresh token expired or requires a fresh GitHub login." });
       }
-      return reply.send(this.issueTokens(refresh.login, refresh.audience, refresh.scope));
+      return reply.send(this.issueTokens(refresh.login, refresh.audience, refresh.scope, refresh.reauthenticateAt));
     }
     return reply.code(400).send({ error: "unsupported_grant_type" });
   }
@@ -149,7 +154,7 @@ export class GitHubAuth {
     const stored = this.readCookie(request, stateCookieName);
     const state = stored && this.verify<{ state: string; flow: GitHubFlow; expiresAt: number }>(stored);
     this.clearCookie(reply, stateCookieName);
-    if (query.error || !query.code || !query.state || !state || state.expiresAt < Date.now() || !safeEqual(query.state, state.state)) {
+    if (query.error || !query.code || !query.state || !state || state.expiresAt < this.now() || !safeEqual(query.state, state.state)) {
       return reply.code(401).type("text/plain").send("GitHub login could not be verified.");
     }
     const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
@@ -163,14 +168,14 @@ export class GitHubAuth {
     if (!login) return reply.code(403).type("text/plain").send(`Only active ${this.organization} members may access this wiki.`);
     if (state.flow.kind === "oauth") {
       const authorization = this.verify<AuthorizationRequest>(state.flow.authorization);
-      if (!authorization || authorization.expiresAt < Date.now()) return reply.code(400).type("text/plain").send("OAuth authorization expired.");
-      const code = this.sign<AuthorizationCode>({ ...authorization, login, type: "authorization_code" });
+      if (!authorization || authorization.expiresAt < this.now()) return reply.code(400).type("text/plain").send("OAuth authorization expired.");
+      const code = this.sign<AuthorizationCode>({ ...authorization, login, reauthenticateAt: this.now() + oneDay, type: "authorization_code" });
       const redirect = new URL(authorization.redirectUri);
       redirect.searchParams.set("code", code);
       if (authorization.state) redirect.searchParams.set("state", authorization.state);
       return reply.redirect(redirect.toString());
     }
-    this.setCookie(reply, cookieName, this.sign({ login, expiresAt: Date.now() + oneHour }), 3600);
+    this.setCookie(reply, cookieName, this.sign<Session>({ login, expiresAt: this.now() + oneHour, type: "browser_session" }), 3600);
     return reply.redirect("/");
   }
 
@@ -181,25 +186,31 @@ export class GitHubAuth {
 
   private startGitHubLogin(reply: FastifyReply, flow: GitHubFlow) {
     const state = randomBytes(32).toString("base64url");
-    this.setCookie(reply, stateCookieName, this.sign({ state, flow, expiresAt: Date.now() + tenMinutes }), 600);
+    this.setCookie(reply, stateCookieName, this.sign({ state, flow, expiresAt: this.now() + tenMinutes }), 600);
     const query = new URLSearchParams({ client_id: this.clientId!, redirect_uri: `${this.publicUrl}/auth/github/callback`, state });
     return reply.redirect(`https://github.com/login/oauth/authorize?${query}`);
   }
 
-  private issueTokens(login: string, audience: string, scope?: string) {
-    const now = Date.now();
+  private validReauthenticationDeadline(value: unknown): value is number {
+    const now = this.now();
+    return typeof value === "number" && Number.isFinite(value) && value > now && value <= now + oneDay;
+  }
+
+  private issueTokens(login: string, audience: string, scope?: string, reauthenticateAt = this.now() + oneDay) {
+    const now = this.now();
+    const accessExpiresAt = Math.min(now + oneHour, reauthenticateAt);
     return {
-      access_token: this.sign<AccessToken>({ login, audience, scope, expiresAt: now + oneHour, type: "access_token" }),
+      access_token: this.sign<AccessToken>({ login, audience, scope, expiresAt: accessExpiresAt, type: "access_token" }),
       token_type: "Bearer",
-      expires_in: oneHour / 1000,
-      refresh_token: this.sign<RefreshToken>({ login, audience, scope, expiresAt: now + thirtyDays, type: "refresh_token" }),
+      expires_in: Math.max(0, Math.floor((accessExpiresAt - now) / 1000)),
+      refresh_token: this.sign<RefreshToken>({ login, audience, scope, expiresAt: reauthenticateAt, reauthenticateAt, type: "refresh_token" }),
       scope: scope ?? ""
     };
   }
 
   private verifyAccessToken(token: string) {
     const payload = this.verify<AccessToken>(token);
-    return payload && payload.type === "access_token" && payload.expiresAt > Date.now() && payload.audience === this.resourceUrl ? payload : null;
+    return payload && payload.type === "access_token" && payload.expiresAt > this.now() && payload.audience === this.resourceUrl ? payload : null;
   }
 
   private async verifyGitHubToken(token: string): Promise<string | null> {
