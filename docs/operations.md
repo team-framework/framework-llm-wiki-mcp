@@ -1,5 +1,11 @@
 # 위키 검색·웹 운영
 
+## 자동 배포의 사용자 서비스 연결
+
+GitHub Actions runner가 비로그인 환경에서 실행되면 `systemctl --user`에 필요한 세션 환경변수가 없을 수 있다. 배포 단계는 미설정된 `XDG_RUNTIME_DIR`을 실행 사용자 UID의 `/run/user/<uid>`로, `DBUS_SESSION_BUS_ADDRESS`를 그 경로의 `bus` socket으로 설정한다. socket을 확인한 뒤 파일을 동기화하고, 추론 서비스를 재시작한 뒤 `is-active`로 상태를 확인한다.
+
+2026-09-29 실패 실행 `36580789412`는 검사·테스트·웹 빌드 이후 이 연결에서 중단됐다. 서버의 runner와 추론 서비스는 같은 `chaeyn` 계정(UID 1000)을 사용하며 사용자 관리자의 linger와 bus socket이 존재함을 확인했다. 두 환경변수를 제거한 비로그인 조건에서도 fallback을 적용하면 기존 서비스에 연결된다. 배포는 기존 main 전용 조건을 유지한다.
+
 Markdown 정본은 별도 Git checkout에 보관한다. API 컨테이너는 읽기 전용으로 연결한다. Qdrant와 임베딩 캐시는 정본에서 다시 만들 수 있다.
 
 ## 서비스와 인증

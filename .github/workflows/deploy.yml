@@ -47,6 +47,10 @@ jobs:
       - name: Sync and restart service
         run: |
           app_dir=/home/chaeyn/apps/framework-llm-wiki-mcp
+          # Non-login runners do not inherit the user's systemd bus environment.
+          export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+          export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+          test -S "${XDG_RUNTIME_DIR}/bus"
           export WIKI_MEASUREMENT_RELEASE="$(git rev-parse HEAD)"
           install -d -m 700 "$app_dir"
           rsync -a --delete \
@@ -65,5 +69,6 @@ jobs:
           systemctl --user daemon-reload
           systemctl --user enable --now framework-wiki-inference.service
           systemctl --user restart framework-wiki-inference.service
+          systemctl --user is-active --quiet framework-wiki-inference.service
           docker compose up -d --build --remove-orphans
           docker compose ps
