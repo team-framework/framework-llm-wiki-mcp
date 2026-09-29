@@ -107,6 +107,8 @@ chat 응답의 `measurement_id`와 검색 응답의 `X-Wiki-Event`로 평가·�
 
 보고 기간은 KST 오늘을 포함한 7/30/90일이며 `today_partial=true`다. 하루를 완전히 관측했다고 가정하지 않는다. 선택된 production 이벤트가 없으면 최상위 `status=not_collected`와 사용자·요청 합계 `null`을 반환한다. 분모 0의 비율도 `null`이다. 세부 표본 count 0은 기록된 표본이 없음을 나타낸다. 측정기가 정상 동작한 무사용 기간과 수집 중단 기간을 구분하는 health timeline은 아직 없으므로 빈 기간을 실제 사용량 0으로 단정하지 않는다.
 
+`daily`는 선택 기간의 날짜를 빠짐없이 반환한다. production 이벤트가 없는 날짜는 `status=not_collected`, `requests=null`, `people=null`이다. 서비스 요청만 기록한 날짜는 `status=measured`, 실제 요청 수와 `people=0`을 반환한다. 실패한 production 요청도 관측에 포함하지만 validation만 있는 날짜는 미관측이다. 웹은 미관측 날짜에 “관측 자료 없음”을 표시하고, 문서 열기·클릭의 지연은 “측정 대상 아님”으로 표시한다. 빈 날짜를 0건이나 0ms 성능으로 바꾸지 않는다.
+
 ## 배포 전후 보고와 후속 확장
 
 현재 보고서는 release·client·feature별 행을 나누며 임의 from/to·release 필터, deployment 테이블, CSV export API는 제공하지 않는다. 배포 시 release를 지정하고 JSON 보고서와 배포 시각을 별도 보관한다. 전후 비교는 같은 길이·요일·관측 완료 여부를 맞추고 모델·corpus·client·사람/서비스 구성과 N을 함께 제시한다. 순차 배포 비교를 인과 효과로 표현하지 않는다. 계측 이전 기간을 replay 수치로 채우지 않는다.

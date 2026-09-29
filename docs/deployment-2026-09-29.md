@@ -16,6 +16,7 @@
 - API 컨테이너의 최근 요청 로그 0행, 위키 Caddy virtual host에 access-log 설정 없음. 이 확인을 서버 전체 로그 정책이나 모든 upstream 로그 검증으로 확대하지 않는다.
 - Discord 명령 2개 등록, Gateway 연결, 기존 알림 서비스 healthy, runtime 재시작 보존을 확인했다.
 - 정기 수집을 켠 첫 catch-up은 47개 대상·469개 메시지·14개 범위를 처리했다. 모두 no_update, 차단·backlog 0건이었다. 승인·PR 대기 outbox는 0건이다.
+- API/MCP 타입 검사와 테스트 61개, 웹 타입 검사·production build를 통과했다. 일별 미관측 값, 서비스만 사용한 날, 실패 요청, validation 제외, KST 날짜 경계를 검증했다. 세션 사용량 집계 테스트 6개도 통과했다.
 
 ## 검증 범위의 경계
 
