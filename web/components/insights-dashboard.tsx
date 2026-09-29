@@ -237,24 +237,26 @@ export function InsightsDashboard() {
 
           <section className="wiki-insights-section">
             <h2>날짜별 사용량</h2>
-            <p>막대는 하루 요청 수를 나타냅니다. 날짜를 가리키거나 키보드로 이동하면 활동한 팀원 수도 확인할 수 있습니다.</p>
+            <p>막대는 기록된 하루 요청 수입니다. 점으로 표시한 날짜에는 관측 자료가 없습니다. 배포 전과 수집 중단 기간을 사용량 0으로 해석하지 않습니다.</p>
             {report.status !== 'measured' || chartDays.length === 0 ? (
               <div className="wiki-insights-status">{report.status === 'disabled' ? '사용할 수 있는 집계가 없습니다.' : '아직 수집 전'}</div>
             ) : (
               <div className="wiki-daily-chart" role="list" aria-label="날짜별 요청량">
                 {chartDays.map((day) => {
-                  const value = byDay.get(day) ?? { requests: 0, people: 0 };
+                  const value = byDay.get(day) ?? { requests: null, people: null };
+                  const missing = value.requests === null;
                   const height = value.requests ? Math.max(4, (value.requests / maxRequests) * 100) : 1;
+                  const description = missing ? `${day}: 관측 자료 없음` : `${day}: 기록된 요청 ${count(value.requests)}건, 활동 팀원 ${count(value.people)}명`;
                   return (
                     <div
                       className="wiki-daily-column"
                       key={day}
                       role="listitem"
                       tabIndex={0}
-                      aria-label={`${day}: 요청 ${count(value.requests)}건, 활동 팀원 ${count(value.people)}명`}
-                      title={`${day}: 요청 ${count(value.requests)}, 팀원 ${count(value.people)}`}
+                      aria-label={description}
+                      title={description}
                     >
-                      <div className="wiki-daily-bar-track"><span className="wiki-daily-bar" style={{ height: `${height}%` }} /></div>
+                      <div className="wiki-daily-bar-track">{missing ? <span aria-hidden="true">·</span> : <span className="wiki-daily-bar" style={{ height: `${height}%` }} />}</div>
                       <span className="wiki-daily-label">{day.slice(5)}</span>
                     </div>
                   );
@@ -265,7 +267,7 @@ export function InsightsDashboard() {
 
           <section className="wiki-insights-section">
             <h2>재방문</h2>
-            <p>최초 관측일을 기준으로 집계합니다. D1/D7의 eligible 수가 각 비율의 분모이며, 오늘은 KST 자정까지 결과를 확정하지 않습니다.</p>
+            <p>최초 관측일을 기준으로 집계합니다. 하루·일주일이 모두 지난 팀원만 비율의 분모에 넣습니다. 오늘 결과는 KST 자정까지 확정하지 않습니다.</p>
             <div className="wiki-retention-grid">
               {[1, 7].map((day) => {
                 const item = report.retention?.find((entry) => entry.day === day);
@@ -275,7 +277,7 @@ export function InsightsDashboard() {
                     <span className="wiki-insights-kpi-label">D{day} 재방문율</span>
                     <strong className="wiki-retention-value">{report.status === 'disabled' ? '사용 불가' : report.status === 'not_collected' ? '아직 수집 전' : mature ? percent(item.rate) : '성숙한 코호트 없음'}</strong>
                     <div className="wiki-retention-count">
-                      eligible {report.status === 'disabled' ? '사용 불가' : report.status === 'not_collected' ? '아직 수집 전' : count(item?.eligible) ?? '표본 없음'}명 · 재방문 {report.status === 'disabled' ? '사용 불가' : report.status === 'not_collected' ? '아직 수집 전' : count(item?.returned) ?? '표본 없음'}명
+                      집계 대상 {report.status === 'disabled' ? '사용 불가' : report.status === 'not_collected' ? '아직 수집 전' : count(item?.eligible) ?? '표본 없음'}명 · 재방문 {report.status === 'disabled' ? '사용 불가' : report.status === 'not_collected' ? '아직 수집 전' : count(item?.returned) ?? '표본 없음'}명
                     </div>
                   </article>
                 );
@@ -301,7 +303,7 @@ export function InsightsDashboard() {
                       <td>{count(item.people)} / {count(item.active_people_denominator)}</td>
                       <td>{percent(item.adoption_rate) ?? '표본 없음'}</td>
                       <td>{count(item.errors)}</td>
-                      <td>{item.p50_ms === null ? '표본 없음' : `${count(item.p50_ms)} ms`} / {item.p95_ms === null ? (item.p95_status === 'insufficient_samples' ? '표본 부족' : '표본 없음') : `${count(item.p95_ms)} ms`}</td>
+                      <td>{['web.document_view','web.search_open','web.citation_open'].includes(item.feature) ? '측정 대상 아님' : <>{item.p50_ms === null ? '표본 없음' : `${count(item.p50_ms)} ms`} / {item.p95_ms === null ? (item.p95_status === 'insufficient_samples' ? '표본 부족' : '표본 없음') : `${count(item.p95_ms)} ms`}</>}</td>
                       <td>{item.feature.includes('search') ? `${count(item.no_results ?? 0)} / ${count(item.truncated ?? 0)}` : '—'}</td>
                     </tr>
                   ))}

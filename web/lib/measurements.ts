@@ -71,7 +71,7 @@ export type MeasurementsReport = {
     no_results?: number;
     truncated?: number;
   }>;
-  daily?: Array<{ day: string; requests: number; people: number }>;
+  daily?: Array<{ day: string; requests: number | null; people: number | null; status?: 'measured' | 'not_collected' }>;
   feedback?: {
     responses: number;
     positive: number;
