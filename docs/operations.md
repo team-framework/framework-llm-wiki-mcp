@@ -29,6 +29,8 @@ Linux host network를 사용하므로 API와 Fumadocs의 수신 주소를 loopba
 
 `docker compose up -d --build` 후 `/health`, 인증된 `/api/status`, 한국어 `/api/context`, 문서 화면, 출처가 있는 챗봇 응답을 확인한다. 컨테이너 시작만으로 검증을 끝내지 않는다. 재배포 전 `.env`와 이전 이미지·collection 이름을 보관한다.
 
+검증 환경의 volume을 운영으로 옮길 때 `.env`의 `QDRANT_VOLUME`, `EMBEDDING_MODELS_VOLUME`, `EMBEDDING_CACHE_VOLUME`에 기존 volume 이름을 지정할 수 있다. 두 Qdrant 인스턴스가 같은 volume을 동시에 열지 않도록 이전 서비스를 먼저 중지한다. volume을 삭제하지 않는다.
+
 ## 읽기 예산과 기록
 
 `max_chars`는 반환할 원문 근거 JSON의 문자 예산이다. 전체 HTTP 응답이나 모델 추론 토큰 한도가 아니다. 큰 표·코드블록에는 `required_chars`가 나올 수 있다. `truncated`와 `next_cursor`를 확인하고 필요한 근거를 이어 읽는다. cursor는 해당 프로세스에서 10분간 유효하므로 만료·재시작 뒤에는 검색부터 다시 시작한다.

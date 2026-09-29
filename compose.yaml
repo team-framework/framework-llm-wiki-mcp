@@ -59,5 +59,8 @@ services:
     mem_limit: 3g
 volumes:
   qdrant-data:
+    name: ${QDRANT_VOLUME:-framework-llm-wiki-mcp_qdrant-data}
   embedding-models:
+    name: ${EMBEDDING_MODELS_VOLUME:-framework-llm-wiki-mcp_embedding-models}
   embedding-cache:
+    name: ${EMBEDDING_CACHE_VOLUME:-framework-llm-wiki-mcp_embedding-cache}
