@@ -3,12 +3,13 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
+import { displayMetadata, type WikiDisplay } from './display.js';
 import { hashContent, matchingPreview, parseFrontmatter, parseSections, queryTerms, sectionBlocks, termFrequency, type MarkdownSection } from "./sections.js";
 
 const execFileAsync = promisify(execFile);
 export const DEFAULT_CONTEXT_CHARS = 12_000;
 const MAX_CONTEXT_CHARS = 128_000;
-export type Note = { path: string; title: string; content: string; body: string; metadata: Record<string, unknown>; links: string[]; note_hash: string };
+export type Note = { path: string; title: string; content: string; body: string; metadata: Record<string, unknown>; links: string[]; note_hash: string; display?: WikiDisplay };
 export type ResolvedLink = { link: string; status: "resolved" | "ambiguous" | "unresolved"; path?: string; candidates?: string[] };
 export type ResolvedNote = Note & { resolved_links: ResolvedLink[] };
 export type SearchOptions = { domain?: string; owner?: string; verification?: string; includeHistory?: boolean; limit?: number };
@@ -103,7 +104,7 @@ export class WikiService {
     for (const hit of hits) { const group = documents.get(hit.note.path) ?? []; group.push(hit); documents.set(hit.note.path, group); }
     return [...documents.values()].slice(0, limit).map((group) => {
       const { note, section, score } = group[0];
-      return { path: note.path, title: note.title, question: note.metadata.question ?? null,
+      return { path: note.path, title: note.title, ...(note.display?.title?{display_title:note.display.title}:{}), question: note.metadata.question ?? null,
         domain: note.metadata.domain ?? null, owner: note.metadata.owner ?? null,
         verification: note.metadata.verification ?? null, last_verified: note.metadata.last_verified ?? null,
         note_hash: note.note_hash, score: Math.round(score * 100_000) / 100_000, retrieval,
@@ -218,10 +219,12 @@ export class WikiService {
     if (!contained(realRoot, await fs.realpath(full))) throw new Error("Invalid wiki note path.");
     const after = await fs.stat(full, { bigint: true });
     if (after.ino !== stat.ino || after.size !== stat.size || after.mtimeNs !== stat.mtimeNs || after.ctimeNs !== stat.ctimeNs) return this.readFile(full, realRoot);
-    const { metadata, body } = parseFrontmatter(content);
+    const parsed = parseFrontmatter(content);
+    const body = parsed.body;
+    const {metadata,display} = displayMetadata(parsed.metadata,body);
     const sections = parseSections(content);
     const title = sections.find((section) => section.level === 1)?.heading ?? path.basename(full, ".md");
-    const note = { path: path.relative(realRoot, full).split(path.sep).join("/"), title, content, body, metadata,
+    const note = { path: path.relative(realRoot, full).split(path.sep).join("/"), title, content, body, metadata, ...(display?{display}:{}),
       links: [...body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)].map((match) => match[1].trim()), note_hash: hashContent(content) };
     this.cache.set(full, { signature, note, sections });
     return note;
