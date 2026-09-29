@@ -1,0 +1,369 @@
+{
+  "schema_version": 1,
+  "measured_at": "2026-09-29",
+  "measurement_type": "offline_replay",
+  "documents": 157,
+  "tokenizer": "o200k_base",
+  "tokenizer_package": "gpt-tokenizer@4.0.0",
+  "legacy": {
+    "tokens": 278972,
+    "evidence_facts": 6,
+    "required_facts": 11,
+    "complete_questions": 5,
+    "questions": 10
+  },
+  "improved": {
+    "lexical": {
+      "tokens": 54450,
+      "median_tokens": 5521.5,
+      "evidence_facts": 8,
+      "required_facts": 11,
+      "complete_questions": 7,
+      "questions": 10,
+      "reduction_vs_fixed_legacy_pct": 80.48,
+      "max_cursor_tokens": 18,
+      "truncated_questions": 6,
+      "seconds_range": null
+    },
+    "hybrid": {
+      "tokens": 53991,
+      "median_tokens": 5333.0,
+      "evidence_facts": 9,
+      "required_facts": 11,
+      "complete_questions": 8,
+      "questions": 10,
+      "reduction_vs_fixed_legacy_pct": 80.65,
+      "max_cursor_tokens": 22,
+      "truncated_questions": 9,
+      "seconds_range": [
+        0.061,
+        0.108
+      ]
+    }
+  },
+  "rows": [
+    {
+      "mode": "lexical",
+      "id": "q1",
+      "score": [
+        true
+      ],
+      "tokens": 5809,
+      "cursor_tokens": 15,
+      "truncated": true,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q2",
+      "score": [
+        false
+      ],
+      "tokens": 5691,
+      "cursor_tokens": 17,
+      "truncated": true,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q3",
+      "score": [
+        true
+      ],
+      "tokens": 5454,
+      "cursor_tokens": 18,
+      "truncated": true,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q4",
+      "score": [
+        true
+      ],
+      "tokens": 5589,
+      "cursor_tokens": 18,
+      "truncated": true,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q5",
+      "score": [
+        true
+      ],
+      "tokens": 6015,
+      "cursor_tokens": 17,
+      "truncated": true,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q6",
+      "score": [
+        false
+      ],
+      "tokens": 5327,
+      "cursor_tokens": 0,
+      "truncated": false,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q7",
+      "score": [
+        true
+      ],
+      "tokens": 4900,
+      "cursor_tokens": 0,
+      "truncated": false,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q8",
+      "score": [
+        true
+      ],
+      "tokens": 4874,
+      "cursor_tokens": 0,
+      "truncated": false,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q9",
+      "score": [
+        true
+      ],
+      "tokens": 4935,
+      "cursor_tokens": 0,
+      "truncated": false,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "lexical",
+      "id": "q10",
+      "score": [
+        true,
+        false
+      ],
+      "tokens": 5856,
+      "cursor_tokens": 17,
+      "truncated": true,
+      "retrieval": {
+        "mode": "lexical",
+        "semantic_status": "not_configured",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q1",
+      "score": [
+        true
+      ],
+      "tokens": 5729,
+      "cursor_tokens": 17,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q2",
+      "score": [
+        false
+      ],
+      "tokens": 5326,
+      "cursor_tokens": 16,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q3",
+      "score": [
+        true
+      ],
+      "tokens": 5340,
+      "cursor_tokens": 17,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q4",
+      "score": [
+        true
+      ],
+      "tokens": 5277,
+      "cursor_tokens": 17,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q5",
+      "score": [
+        true
+      ],
+      "tokens": 5715,
+      "cursor_tokens": 13,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q6",
+      "score": [
+        false
+      ],
+      "tokens": 5383,
+      "cursor_tokens": 16,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q7",
+      "score": [
+        true
+      ],
+      "tokens": 5539,
+      "cursor_tokens": 18,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q8",
+      "score": [
+        true
+      ],
+      "tokens": 5217,
+      "cursor_tokens": 17,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q9",
+      "score": [
+        true
+      ],
+      "tokens": 5142,
+      "cursor_tokens": 0,
+      "truncated": false,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    },
+    {
+      "mode": "hybrid",
+      "id": "q10",
+      "score": [
+        true,
+        true
+      ],
+      "tokens": 5323,
+      "cursor_tokens": 22,
+      "truncated": true,
+      "retrieval": {
+        "mode": "hybrid",
+        "semantic_status": "ready",
+        "stale_hits": 0
+      }
+    }
+  ],
+  "scope": "Fixed first-response tool payload only. Private query text and document contents omitted. Not historical production traffic, billing, or generated-answer accuracy.",
+  "status": "superseded",
+  "superseded_by": "retrieval-quality.json",
+  "superseded_reason": "Hybrid used a changing live corpus: 3 of 65 returned evidence note hashes differed from the fixed local corpus. This is not a controlled same-corpus comparison.",
+  "local_corpus_commit": "ed4256e0625b4e63a1a4d8d90bf73cfc373ad9f3",
+  "remote_corpus_commit_at_evaluation": null,
+  "provenance_audit": {
+    "audit": "evidence note_hash versus fixed local corpus",
+    "checked_evidence": 65,
+    "matching_evidence": 62,
+    "unique_documents": 32,
+    "missing_files": 0,
+    "mismatched_evidence": 3,
+    "affected_query_ids": [
+      "q8",
+      "q9"
+    ],
+    "local_corpus_declared_commit": "ed4256e0625b4e63a1a4d8d90bf73cfc373ad9f3",
+    "remote_corpus_commit_at_evaluation": null,
+    "comparison_status": "uncontrolled_corpus_drift"
+  }
+}
