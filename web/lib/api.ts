@@ -18,8 +18,18 @@ export interface WikiNote {
   title: string;
   content: string;
   body: string;
+  note_hash?: string;
   metadata: Record<string, unknown>;
   resolved_links: ResolvedWikiLink[];
+  display?: WikiDisplay;
+}
+
+export interface WikiDisplay {
+  title?: string;
+  content?: string;
+  stale?: boolean;
+  source_hash?: string;
+  body_hash?: string;
 }
 
 export type LoadResult<T> =
@@ -79,12 +89,23 @@ function isWikiNote(value: unknown): value is WikiNote {
     && typeof note.body === 'string'
     && !!note.metadata
     && typeof note.metadata === 'object'
+    && (note.display === undefined || isWikiDisplay(note.display))
     && Array.isArray(note.resolved_links)
     && note.resolved_links.every((link) => Boolean(
       link && typeof link === 'object'
       && typeof (link as Record<string, unknown>).link === 'string'
       && ['resolved', 'ambiguous', 'unresolved'].includes(String((link as Record<string, unknown>).status)),
     ));
+}
+
+function isWikiDisplay(value: unknown): value is WikiDisplay {
+  if (!value || typeof value !== 'object') return false;
+  const display = value as Record<string, unknown>;
+  return (display.title === undefined || typeof display.title === 'string')
+    && (display.content === undefined || typeof display.content === 'string')
+    && (display.stale === undefined || typeof display.stale === 'boolean')
+    && (display.source_hash === undefined || typeof display.source_hash === 'string')
+    && (display.body_hash === undefined || typeof display.body_hash === 'string');
 }
 
 export async function loadWikiTree(): Promise<LoadResult<WikiTreeEntry[]>> {

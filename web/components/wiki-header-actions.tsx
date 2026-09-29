@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen } from 'lucide-react';
+import { BarChart3, BookOpen } from 'lucide-react';
 import { SearchBox } from '@/components/search-box';
 import { WikiChat } from '@/components/wiki-chat';
 
@@ -22,6 +22,15 @@ export function WikiHeaderActions({ variant }: WikiHeaderActionsProps) {
       >
         <BookOpen size={16} aria-hidden="true" />
         <span>Bot 사용법</span>
+      </Link>
+      <Link
+        className={`wiki-guide-link wiki-insights-link${compact ? ' wiki-guide-link-compact' : ''}`}
+        href="/docs/insights"
+        aria-label="위키 사용 현황"
+        title="위키 사용 현황"
+      >
+        <BarChart3 size={16} aria-hidden="true" />
+        <span>사용 현황</span>
       </Link>
     </div>
   );

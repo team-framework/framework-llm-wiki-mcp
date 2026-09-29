@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Search, X } from 'lucide-react';
-import { documentHref } from '@/lib/links';
+import { documentHref, friendlyDocumentTitle } from '@/lib/links';
+import { recordWebEvent } from '@/lib/measurements';
 
 interface SearchResult {
   path: string;
@@ -24,6 +25,7 @@ export function SearchBox({ compact = false }: SearchBoxProps) {
   const [loading, setLoading] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [searchEventId, setSearchEventId] = useState<string | null>(null);
 
   useEffect(() => {
     if (compactOpen) requestAnimationFrame(() => inputRef.current?.focus());
@@ -42,6 +44,7 @@ export function SearchBox({ compact = false }: SearchBoxProps) {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
       setResults([]);
+      setSearchEventId(null);
       setLoading(false);
       setUnauthorized(false);
       setFailed(false);
@@ -49,6 +52,7 @@ export function SearchBox({ compact = false }: SearchBoxProps) {
     }
 
     setResults([]);
+    setSearchEventId(null);
     setLoading(true);
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
@@ -66,6 +70,7 @@ export function SearchBox({ compact = false }: SearchBoxProps) {
           return;
         }
         if (!response.ok) throw new Error('검색 요청이 실패했습니다.');
+        setSearchEventId(response.headers.get('X-Wiki-Event'));
 
         const data: unknown = await response.json();
         const nextResults = Array.isArray(data)
@@ -99,6 +104,7 @@ export function SearchBox({ compact = false }: SearchBoxProps) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (results[0]) {
+      recordWebEvent({ feature: 'web.search_open', path: results[0].path, parentEventId: searchEventId });
       router.push(documentHref(results[0].path));
       closeCompact();
     }
@@ -140,11 +146,12 @@ export function SearchBox({ compact = false }: SearchBoxProps) {
               href={documentHref(result.path)}
               key={result.path}
               onClick={() => {
+                recordWebEvent({ feature: 'web.search_open', path: result.path, parentEventId: searchEventId });
                 setFocused(false);
                 if (compact) closeCompact();
               }}
             >
-              <span className="wiki-search-result-title">{result.title}</span>
+              <span className="wiki-search-result-title">{friendlyDocumentTitle(result.title, result.path)}</span>
               <span className="wiki-search-result-path">{result.path}</span>
               {result.excerpt && <span className="wiki-search-result-excerpt">{result.excerpt}</span>}
             </Link>

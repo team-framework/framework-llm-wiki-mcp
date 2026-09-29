@@ -1,6 +1,6 @@
 import type * as PageTree from 'fumadocs-core/page-tree';
 import type { WikiTreeEntry } from '@/lib/api';
-import { documentHref } from '@/lib/links';
+import { documentHref, friendlyDocumentTitle } from '@/lib/links';
 
 export function createPageTree(notes: WikiTreeEntry[]): PageTree.Root {
   const root: PageTree.Root = {
@@ -37,7 +37,7 @@ export function createPageTree(notes: WikiTreeEntry[]): PageTree.Root {
 
     const page: PageTree.Item = {
       type: 'page',
-      name: note.title,
+      name: friendlyDocumentTitle(note.title, note.path),
       url: documentHref(note.path),
       $id: note.path,
     };

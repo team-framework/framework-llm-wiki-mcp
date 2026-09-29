@@ -19,6 +19,18 @@ export function decodeDocumentPath(segments: string[]) {
   }).join('/');
 }
 
+export function friendlyDocumentTitle(title: string, path = '') {
+  const fallback = path.split(/[\\/]/).filter(Boolean).at(-1)?.replace(/\.md$/i, '') ?? '';
+  const initial = title.trim() || fallback;
+  return initial
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
+    .replace(/\.md$/i, '')
+    .replace(/__\d+(?=$|[\s.)_-])/g, '')
+    .replace(/^__\d+[_\s.-]*/, '')
+    .trim() || fallback.replace(/__\d+(?=$|[\s.)_-])/g, '').replace(/^__\d+[_\s.-]*/, '');
+}
+
 export function normalizeNoteReference(value: string) {
   return value
     .split('#', 1)[0]

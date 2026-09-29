@@ -1,13 +1,25 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { ExternalLink, LoaderCircle, MessageSquareText, Send, Sparkles, X } from 'lucide-react';
-import { headingId, documentHref } from '@/lib/links';
+import { ExternalLink, LoaderCircle, MessageSquareText, Send, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { friendlyDocumentTitle, headingId, documentHref } from '@/lib/links';
 import { WikiMarkdown } from '@/components/wiki-markdown';
+import { recordWebEvent } from '@/lib/measurements';
 
 type Reasoning = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 type Citation = { path: string; title: string; section?: string; url?: string };
-type ChatMessage = { role: 'user' | 'assistant'; content: string; sources?: Citation[] };
+type FeedbackReason = 'correct' | 'missing_context' | 'outdated' | 'irrelevant' | 'slow' | 'other';
+type ChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: Citation[];
+  measurementId?: string | null;
+  feedbackChoice?: 'positive' | 'negative';
+  feedbackReason?: FeedbackReason;
+  feedbackSaved?: boolean;
+  feedbackSaving?: boolean;
+  feedbackError?: boolean;
+};
 
 const reasoningOptions: { value: Reasoning; label: string }[] = [
   { value: 'none', label: '없음' },
@@ -16,6 +28,15 @@ const reasoningOptions: { value: Reasoning; label: string }[] = [
   { value: 'high', label: '높음' },
   { value: 'xhigh', label: '매우 높음' },
   { value: 'max', label: '최대' },
+];
+
+const feedbackReasons: { value: FeedbackReason; label: string }[] = [
+  { value: 'correct', label: '정확하고 도움이 됐어요' },
+  { value: 'missing_context', label: '맥락이 부족해요' },
+  { value: 'outdated', label: '내용이 오래됐어요' },
+  { value: 'irrelevant', label: '질문과 맞지 않아요' },
+  { value: 'slow', label: '응답이 늦었어요' },
+  { value: 'other', label: '기타' },
 ];
 
 function citationHref(source: Citation) {
@@ -28,7 +49,8 @@ function citationHref(source: Citation) {
 }
 
 function sourceLinkLabel(source: Citation) {
-  return source.section ? `${source.title} · ${source.section}` : source.title;
+  const title = friendlyDocumentTitle(source.title, source.path);
+  return source.section ? `${title} · ${source.section}` : title;
 }
 
 export function WikiChat({ compact = false }: { compact?: boolean }) {
@@ -90,7 +112,8 @@ export function WikiChat({ compact = false }: { compact?: boolean }) {
       if (!result || typeof result !== 'object' || typeof (result as { answer?: unknown }).answer !== 'string') {
         throw new Error('chat response was invalid');
       }
-      const data = result as { answer: string; sources?: unknown };
+      const data = result as { answer: string; sources?: unknown; measurement_id?: unknown };
+      const measurementId = typeof data.measurement_id === 'string' ? data.measurement_id : null;
       const sources = Array.isArray(data.sources)
         ? data.sources.filter((item): item is Citation => {
           if (!item || typeof item !== 'object') return false;
@@ -102,11 +125,39 @@ export function WikiChat({ compact = false }: { compact?: boolean }) {
         })
         : [];
 
-      setMessages((current) => [...current, { role: 'assistant', content: data.answer, sources }]);
+      setMessages((current) => [...current, { role: 'assistant', content: data.answer, sources, measurementId }]);
     } catch {
       setError('failed');
     } finally {
       setSending(false);
+    }
+  }
+
+  function updateMessage(index: number, patch: Partial<ChatMessage>) {
+    setMessages((current) => current.map((message, messageIndex) => (
+      messageIndex === index ? { ...message, ...patch } : message
+    )));
+  }
+
+  async function saveFeedback(index: number, message: ChatMessage) {
+    if (!message.measurementId || !message.feedbackChoice || message.feedbackSaving) return;
+    updateMessage(index, { feedbackSaving: true, feedbackError: false });
+    try {
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: JSON.stringify({
+          event_id: message.measurementId,
+          rating: message.feedbackChoice,
+          ...(message.feedbackReason ? { reason: message.feedbackReason } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error('feedback request failed');
+      updateMessage(index, { feedbackSaved: true, feedbackSaving: false, feedbackError: false });
+    } catch {
+      updateMessage(index, { feedbackSaving: false, feedbackError: true });
     }
   }
 
@@ -136,7 +187,7 @@ export function WikiChat({ compact = false }: { compact?: boolean }) {
           <header className="wiki-chat-header">
             <div>
               <p className="wiki-chat-title" id="wiki-chat-title">위키에 물어보기</p>
-              <p className="wiki-chat-subtitle">GPT-6 Luna · 문서 근거와 함께 답변합니다</p>
+          <p className="wiki-chat-subtitle">GPT-6 Luna · 문서 근거와 함께 답변합니다</p>
             </div>
             <button className="wiki-icon-button" type="button" aria-label="채팅 닫기" onClick={() => setOpen(false)}>
               <X size={18} aria-hidden="true" />
@@ -161,8 +212,8 @@ export function WikiChat({ compact = false }: { compact?: boolean }) {
             {messages.length === 0 ? (
               <div className="wiki-chat-empty">
                 <Sparkles size={22} aria-hidden="true" />
-                <strong>팀 위키를 함께 살펴볼게요.</strong>
-                <span>기술 결정, 프로젝트 맥락, 팀 문서에 대해 질문해 보세요.</span>
+              <strong>팀 위키를 함께 살펴볼게요.</strong>
+              <span>문서 작성과 수정, 디자인·기획·일정도 질문해 보세요.</span>
               </div>
             ) : messages.map((message, index) => (
               <article
@@ -183,12 +234,67 @@ export function WikiChat({ compact = false }: { compact?: boolean }) {
                           href={href}
                           key={`${source.path}-${source.section ?? sourceIndex}`}
                           {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                          onClick={() => recordWebEvent({
+                            feature: 'web.citation_open',
+                            path: source.path,
+                            parentEventId: message.measurementId,
+                          })}
                         >
                           {sourceLinkLabel(source)}
                           {external && <ExternalLink size={12} aria-hidden="true" />}
                         </a>
                       );
                     })}
+                  </div>
+                )}
+                {message.role === 'assistant' && message.measurementId && (
+                  <div className="wiki-answer-feedback" aria-label="답변 평가">
+                    {message.feedbackSaved ? (
+                      <span className="wiki-answer-feedback-saved" role="status">평가를 기록했습니다.</span>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className={message.feedbackChoice === 'positive' ? 'selected' : ''}
+                          aria-pressed={message.feedbackChoice === 'positive'}
+                          onClick={() => {
+                            const next = { ...message, feedbackChoice: 'positive' as const };
+                            updateMessage(index, next);
+                            void saveFeedback(index, next);
+                          }}
+                          disabled={message.feedbackSaving}
+                        >
+                          <ThumbsUp size={14} aria-hidden="true" /> 도움이 됐어요
+                        </button>
+                        <button
+                          type="button"
+                          className={message.feedbackChoice === 'negative' ? 'selected' : ''}
+                          aria-pressed={message.feedbackChoice === 'negative'}
+                          onClick={() => updateMessage(index, { feedbackChoice: 'negative', feedbackSaved: false, feedbackError: false })}
+                          disabled={message.feedbackSaving}
+                        >
+                          <ThumbsDown size={14} aria-hidden="true" /> 아쉬워요
+                        </button>
+                        {message.feedbackChoice === 'negative' && (
+                          <div className="wiki-answer-feedback-reason">
+                            <label htmlFor={`wiki-answer-reason-${index}`}>어떤 점이 아쉬웠나요?</label>
+                            <select
+                              id={`wiki-answer-reason-${index}`}
+                              value={message.feedbackReason ?? ''}
+                              onChange={(event) => updateMessage(index, { feedbackReason: event.target.value ? event.target.value as FeedbackReason : undefined })}
+                              disabled={message.feedbackSaving}
+                            >
+                              <option value="">이유 선택 (선택 사항)</option>
+                              {feedbackReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+                            </select>
+                            <button type="button" onClick={() => void saveFeedback(index, message)} disabled={message.feedbackSaving}>
+                              {message.feedbackSaving ? '기록 중…' : '평가 보내기'}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {message.feedbackError && <span className="wiki-answer-feedback-error" role="alert">평가를 기록하지 못했습니다.</span>}
                   </div>
                 )}
               </article>
@@ -212,7 +318,7 @@ export function WikiChat({ compact = false }: { compact?: boolean }) {
             <textarea
               ref={textareaRef}
               aria-label="위키 Agent에게 질문"
-              placeholder="위키에 대해 질문하세요"
+              placeholder="문서 신규·수정, 디자인·기획·일정을 물어보세요"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleComposerKeyDown}

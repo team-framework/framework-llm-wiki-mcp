@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { WikiHeaderActions } from '@/components/wiki-header-actions';
+import { WikiFeedbackWidget } from '@/components/wiki-feedback-widget';
 import { loadWikiTree } from '@/lib/api';
 import { createPageTree } from '@/lib/page-tree';
 
@@ -46,7 +47,7 @@ export default async function WikiDocsLayout({ children }: { children: ReactNode
     >
       {!result.ok && result.reason === 'unauthorized'
         ? <LoginRequired />
-        : <>{!result.ok && <WikiUnavailable />}{children}</>}
+        : <>{!result.ok && <WikiUnavailable />}{children}{result.ok && <WikiFeedbackWidget />}</>}
     </DocsLayout>
   );
 }

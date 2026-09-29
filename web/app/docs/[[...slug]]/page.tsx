@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
-import { WikiMarkdown } from '@/components/wiki-markdown';
+import { DocumentViewTracker } from '@/components/document-view-tracker';
+import { WikiNoteContent } from '@/components/wiki-note-content';
 import { loadWikiNote, loadWikiTree } from '@/lib/api';
 import { documentHeadings } from '@/lib/markdown';
-import { decodeDocumentPath, documentHref, stripLeadingTitleHeading } from '@/lib/links';
+import { decodeDocumentPath, documentHref, friendlyDocumentTitle, stripLeadingTitleHeading } from '@/lib/links';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -61,7 +62,7 @@ async function WikiIndex() {
               return (
                 <Link className="wiki-overview-card" href={documentHref(first.path)} key={name}>
                   <strong>{name}</strong>
-                  <span>{notes.length}개 문서 · {first.title}</span>
+                  <span>{notes.length}개 문서 · {friendlyDocumentTitle(first.title, first.path)}</span>
                 </Link>
               );
             })}
@@ -100,7 +101,12 @@ export default async function WikiDocumentPage({ params }: RouteProps) {
   }
 
   const note = result.data;
-  const body = stripLeadingTitleHeading(note.body, note.title);
+  const displayTitle = friendlyDocumentTitle(note.display?.title ?? note.title, note.path);
+  const sourceBody = stripLeadingTitleHeading(note.body, note.title);
+  const displayBody = note.display?.content
+    ? stripLeadingTitleHeading(note.display.content, note.display.title ?? displayTitle)
+    : undefined;
+  const defaultBody = displayBody && !note.display?.stale ? displayBody : sourceBody;
   const description = typeof note.metadata.question === 'string' ? note.metadata.question : undefined;
   const metadata = [
     ...displayMetadata(note.metadata.domain).map((value) => `주제 · ${value}`),
@@ -109,8 +115,9 @@ export default async function WikiDocumentPage({ params }: RouteProps) {
   ];
 
   return (
-    <DocsPage toc={documentHeadings(body)}>
-      <DocsTitle>{note.title}</DocsTitle>
+    <DocsPage toc={documentHeadings(defaultBody)}>
+      <DocumentViewTracker path={note.path} />
+      <DocsTitle>{displayTitle}</DocsTitle>
       <DocsDescription>{description}</DocsDescription>
       {metadata.length > 0 && (
         <div className="wiki-note-meta" aria-label="문서 정보">
@@ -118,7 +125,13 @@ export default async function WikiDocumentPage({ params }: RouteProps) {
         </div>
       )}
       <DocsBody>
-        <WikiMarkdown markdown={body} resolvedLinks={note.resolved_links ?? []} />
+        <WikiNoteContent
+          key={`${note.path}:${note.note_hash ?? ''}`}
+          sourceBody={sourceBody}
+          displayBody={displayBody}
+          stale={note.display?.stale === true}
+          resolvedLinks={note.resolved_links ?? []}
+        />
       </DocsBody>
     </DocsPage>
   );
