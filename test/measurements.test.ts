@@ -98,3 +98,39 @@ test('missing observations remain null, product feedback is limited, and old row
     assert.equal(store.productFeedbackList().length,0);assert.equal(store.report().status,'not_collected');
   } finally {store.close();}
 });
+
+test('daily reports distinguish unobserved days from measured person and service activity',()=>{
+  let now=Date.parse('2026-09-29T10:00:00+09:00');
+  const store=new MeasurementStore(':memory:',secret,'r','production',()=>now);
+  try {
+    const empty=store.report(30);
+    assert.equal(empty.status,'not_collected');
+    assert.equal(empty.daily.length,30);
+    assert.equal(empty.daily[0].day,'2026-08-31');
+    assert.equal(empty.daily.at(-1)?.day,'2026-09-29');
+    assert.ok(empty.daily.every(row=>row.requests===null && row.people===null && row.status==='not_collected'));
+
+    now=Date.parse('2026-09-26T10:00:00+09:00');
+    store.record(actor('b'),{...event,status:'error'});
+    now=Date.parse('2026-09-27T10:00:00+09:00');
+    store.record(actor('integration-smoke'),event);
+    now=Date.parse('2026-09-28T10:00:00+09:00');
+    store.record(actor('machine','service'),event);
+    now=Date.parse('2026-09-29T10:00:00+09:00');
+    store.record(actor('a'),event);
+    store.record(actor('a'),{...event,status:'error'});
+    store.record(actor('b'),{...event,status:'error'});
+    const measured=store.report(30);
+    assert.equal(measured.status,'measured');
+    assert.deepEqual(measured.daily.find(row=>row.day==='2026-09-26'),{day:'2026-09-26',requests:1,people:1,status:'measured'});
+    assert.deepEqual(measured.daily.find(row=>row.day==='2026-09-27'),{day:'2026-09-27',requests:null,people:null,status:'not_collected'});
+    assert.deepEqual(measured.daily.find(row=>row.day==='2026-09-28'),{day:'2026-09-28',requests:1,people:0,status:'measured'});
+    assert.deepEqual(measured.daily.find(row=>row.day==='2026-09-29'),{day:'2026-09-29',requests:3,people:2,status:'measured'});
+    assert.ok(measured.daily.filter(row=>row.day<'2026-09-26').every(row=>row.requests===null && row.people===null && row.status==='not_collected'));
+
+    now=Date.parse('2026-09-30T00:00:01+09:00');
+    const next=store.report(7);
+    assert.deepEqual(next.daily.at(-1),{day:'2026-09-30',requests:null,people:null,status:'not_collected'});
+    assert.equal(next.daily.find(row=>row.day==='2026-09-29')?.requests,3);
+  } finally {store.close();}
+});

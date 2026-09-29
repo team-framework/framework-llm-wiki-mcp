@@ -152,8 +152,13 @@ export class MeasurementStore {
       }
       return { day: offset, eligible, returned, rate: ratio(returned,eligible), status: eligible ? 'measured' : 'no_mature_cohort' };
     });
-    const daily = [...new Set(selected.map(r=>r.day))].map(day=>({ day, requests:selected.filter(r=>r.day===day).length,
-      people:new Set(people.filter(r=>r.day===day).map(r=>r.actor)).size }));
+    const daily = Array.from({length:days},(_,index)=>{
+      const day=kstDay(this.now()-(days-1-index)*DAY);
+      const observed=selected.filter(row=>row.day===day);
+      return {day,requests:observed.length?observed.length:null,
+        people:observed.length?new Set(observed.filter(row=>row.actor_kind==='person').map(row=>row.actor)).size:null,
+        status:observed.length?'measured':'not_collected'};
+    });
     const feedback = this.db.prepare("SELECT f.rating,f.reason,e.release FROM feedback f JOIN events e ON e.id=f.event_id WHERE e.mode='production' AND e.actor_kind='person' AND e.client='web' AND e.day>=? AND e.day<=?").all(start,end) as any[];
     const chatAnswers = people.filter(r=>r.feature==='web.chat' && r.status==='ok' && r.client==='web').length;
     const positive=feedback.filter(r=>r.rating==='positive').length;
