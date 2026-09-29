@@ -4,6 +4,8 @@
 
 - 문서 수정은 정본 위키 저장소에서 PR로 합니다.
 
+[이번 개선 작업 안내](docs/implementation-overview.md)에서 위키 UI, Discord Bot, 사용 현황, 토큰 절약 방법과 측정 결과를 읽을 수 있습니다.
+
 ## 연결
 
 사람은 [framework-wiki.chaeyn.com](https://framework-wiki.chaeyn.com)에 접속해 GitHub로 로그인합니다. `team-framework`의 활성 Member 또는 admin만 볼 수 있습니다.
