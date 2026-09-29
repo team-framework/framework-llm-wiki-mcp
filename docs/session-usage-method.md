@@ -42,7 +42,7 @@ Fast 가정은 위 단가의 2배다. [공식 Astra 모델 문서](https://devel
  + output × output_rate) / 1,000,000
 ```
 
-작업 요청에 Fast라는 표현이 있어도 로그의 처리 등급 증거로 간주하지 않는다. 현재 `turn_context`에 service tier가 없어 Standard와 Fast를 각각 가정했다. 장문 요청·누락된 요청별 입력 관측·0이 아닌 cache writes가 있으면 이 단순 환산을 중단하고 가격을 null로 남긴다. 모델별 사용량 자체는 계속 보고한다.
+작업 요청에 Fast라는 표현이 있어도 로그의 처리 등급 증거로 간주하지 않는다. 현재 `turn_context`에 service tier가 없어 자동 집계는 전 모델 Standard와 전 모델 Fast를 비교 가정으로 남긴다. 최종 보고 후 사용자가 “Luna만 Fast 실행”이라고 확인했으므로, 최종 JSON에는 Luna Fast·Astra/Sol Standard를 적용한 `user_confirmed_tiers_usd`를 추가했다. `user_confirmed_execution`에 확인 출처를 남기고 로그의 `observed_service_tiers`는 변경하지 않았다. 장문 요청·누락된 요청별 입력 관측·0이 아닌 cache writes가 있으면 이 단순 환산을 중단하고 가격을 null로 남긴다. 모델별 사용량 자체는 계속 보고한다.
 
 이 값은 **API 토큰 가격에 대응시킨 추정액**이다. ChatGPT OAuth 실제 청구액·구독료·구매 크레딧 사용액을 뜻하지 않는다. 도구 호출 요금, 서버·임베딩 비용, 세금, 데이터 지역 가산, rollout 밖 Hermes 추론은 포함하지 않는다. 가격은 자동 갱신하지 않으므로 재실행 시 공식 단가 변경 여부를 확인하고 `PRICING.verified_date`와 표를 함께 갱신한다.
 
@@ -59,10 +59,20 @@ Fast 가정은 위 단가의 2배다. [공식 Astra 모델 문서](https://devel
 | 출력에 포함된 추론 | 258,531 |
 | 입력 + 출력 | 131,446,248 |
 | 캐시를 제외한 입력 + 출력 | 3,803,112 |
-| Standard 가정 | $102.94817508 |
-| Fast 가정 | $205.89635016 |
+| 사용자 확인: Luna만 Fast | **$103.53803416** |
+| 비교 가정: 전 모델 Standard | $102.94817508 |
+| 비교 가정: 전 모델 Fast | $205.89635016 |
 
-공식 단가를 종료 직전에 다시 확인했다. 실제 처리 등급은 로그에 없으며, 위 값은 ChatGPT 구독 청구액이 아니다.
+공식 단가를 종료 직전에 다시 확인했다. 처리 등급은 사용자의 후속 확인을 반영했다. 토큰 관측 시각은 그대로 유지하며 이 비용 수정 대화의 추가 토큰은 포함하지 않는다. API 환산액은 ChatGPT 구독 청구액이 아니다.
+
+| 모델 | 적용 등급 | API 환산액 |
+| --- | --- | ---: |
+| GPT-6 Astra | Standard | $94.76373800 |
+| GPT-6 Sol | Standard | $7.59457800 |
+| GPT-6 Luna | Fast | $1.17971816 |
+| 합계 | Luna만 Fast | **$103.53803416** |
+
+재계산은 `by_model`에서 Luna의 `fast_usd`와 Astra/Sol의 `standard_usd`를 더한다. 자동 집계 도구는 사용자 확인을 추론하지 않으므로 다시 생성한 보고서에 이 확인 정보를 별도로 적용한다.
 
 ## 작업 중간 checkpoint
 

@@ -37,7 +37,9 @@
       },
       "api_equivalent_estimate": {
         "standard_usd": 94.763738,
-        "fast_usd": 189.527476
+        "fast_usd": 189.527476,
+        "user_confirmed_tier": "standard",
+        "user_confirmed_tier_usd": 94.763738
       }
     },
     {
@@ -55,7 +57,9 @@
       },
       "api_equivalent_estimate": {
         "standard_usd": 0.58985908,
-        "fast_usd": 1.17971816
+        "fast_usd": 1.17971816,
+        "user_confirmed_tier": "fast",
+        "user_confirmed_tier_usd": 1.17971816
       }
     },
     {
@@ -73,7 +77,9 @@
       },
       "api_equivalent_estimate": {
         "standard_usd": 7.594578,
-        "fast_usd": 15.189156
+        "fast_usd": 15.189156,
+        "user_confirmed_tier": "standard",
+        "user_confirmed_tier_usd": 7.594578
       }
     }
   ],
@@ -147,14 +153,25 @@
   "api_equivalent_estimate": {
     "standard_usd": 102.94817508,
     "fast_usd": 205.89635016,
-    "status": "estimated"
+    "status": "estimated",
+    "user_confirmed_tiers_usd": 103.53803416
   },
   "limitations": [
     "This is an API token-price equivalent, not a ChatGPT OAuth charge or invoice.",
-    "Standard and Fast are alternative assumptions; no tier is inferred from a user preference.",
+    "Standard and Fast totals are all-model comparison scenarios. The user-confirmed estimate applies Fast only to Luna and Standard to Astra and Sol; this tier assignment comes from the user, not the logs.",
     "Cached input is included in input; reasoning output is included in output and is not added again.",
     "Active files are sampled sequentially; rerun after work finishes. --final does not stop or verify process completion.",
     "Tool fees, hosting, embeddings, taxes, data-residency uplift and external Hermes inference are excluded.",
     "Token totals describe this implementation session, not production wiki users or retrieval benchmark payloads."
-  ]
+  ],
+  "user_confirmed_execution": {
+    "source": "user_followup",
+    "confirmed_on": "2026-09-29",
+    "tiers": {
+      "gpt-6-astra": "standard",
+      "gpt-6-sol": "standard",
+      "gpt-6-luna": "fast"
+    },
+    "note": "User clarified that only Luna ran in Fast mode. This supplements the snapshot; observed service tiers remain unavailable in the logs."
+  }
 }
