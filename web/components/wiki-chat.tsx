@@ -31,7 +31,7 @@ function sourceLinkLabel(source: Citation) {
   return source.section ? `${source.title} · ${source.section}` : source.title;
 }
 
-export function WikiChat() {
+export function WikiChat({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -121,7 +121,8 @@ export function WikiChat() {
     <>
       <button
         type="button"
-        className="wiki-chat-trigger"
+        className={`wiki-chat-trigger${compact ? ' wiki-chat-trigger-compact' : ''}`}
+        aria-label={compact ? (open ? '위키 Agent 닫기' : '위키 Agent 열기') : undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}

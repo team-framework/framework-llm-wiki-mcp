@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
-import { Search } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Search, X } from 'lucide-react';
 import { documentHref } from '@/lib/links';
 
 interface SearchResult {
@@ -12,14 +12,31 @@ interface SearchResult {
   excerpt?: string;
 }
 
-export function SearchBox() {
+type SearchBoxProps = { compact?: boolean };
+
+export function SearchBox({ compact = false }: SearchBoxProps) {
   const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [focused, setFocused] = useState(false);
+  const [compactOpen, setCompactOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (compactOpen) requestAnimationFrame(() => inputRef.current?.focus());
+  }, [compactOpen]);
+
+  useEffect(() => {
+    if (!compactOpen) return;
+    function onKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') closeCompact();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [compactOpen]);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -74,18 +91,26 @@ export function SearchBox() {
     };
   }, [query]);
 
+  function closeCompact() {
+    setCompactOpen(false);
+    setFocused(false);
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (results[0]) router.push(documentHref(results[0].path));
+    if (results[0]) {
+      router.push(documentHref(results[0].path));
+      closeCompact();
+    }
   }
 
   const showResults = focused && query.trim().length > 0;
-
-  return (
+  const form = (
     <form className="wiki-search" role="search" onSubmit={submit}>
       <div className="wiki-search-field">
         <Search size={16} aria-hidden="true" />
         <input
+          ref={inputRef}
           aria-label="위키 검색"
           autoComplete="off"
           placeholder="위키 검색"
@@ -114,7 +139,10 @@ export function SearchBox() {
               className="wiki-search-result"
               href={documentHref(result.path)}
               key={result.path}
-              onClick={() => setFocused(false)}
+              onClick={() => {
+                setFocused(false);
+                if (compact) closeCompact();
+              }}
             >
               <span className="wiki-search-result-title">{result.title}</span>
               <span className="wiki-search-result-path">{result.path}</span>
@@ -127,5 +155,33 @@ export function SearchBox() {
         </div>
       )}
     </form>
+  );
+
+  if (!compact) return form;
+
+  return (
+    <div className="wiki-search-compact-root">
+      <button
+        className="wiki-search-compact-trigger"
+        type="button"
+        aria-label={compactOpen ? '위키 검색 닫기' : '위키 검색 열기'}
+        aria-expanded={compactOpen}
+        aria-haspopup="dialog"
+        onClick={() => setCompactOpen((value) => !value)}
+      >
+        {compactOpen ? <X size={18} aria-hidden="true" /> : <Search size={18} aria-hidden="true" />}
+      </button>
+      {compactOpen && (
+        <section className="wiki-search-compact-popover" role="dialog" aria-label="위키 검색">
+          <div className="wiki-search-compact-heading">
+            <strong>위키 검색</strong>
+            <button type="button" aria-label="검색 닫기" onClick={closeCompact}>
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+          {form}
+        </section>
+      )}
+    </div>
   );
 }

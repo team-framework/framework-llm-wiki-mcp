@@ -36,11 +36,12 @@ export default async function WikiDocsLayout({ children }: { children: ReactNode
   return (
     <DocsLayout
       tree={tree}
-      nav={{ title: 'Framework 위키', url: '/docs' }}
-      links={[
-        { type: 'main', text: 'Bot 사용법', url: '/docs/bot-guide', on: 'nav', active: 'nested-url' },
-        { type: 'custom', on: 'nav', children: <WikiHeaderActions /> },
-      ]}
+      nav={{
+        title: 'Framework 위키',
+        url: '/docs',
+        children: <WikiHeaderActions variant="compact" />,
+      }}
+      sidebar={{ banner: <WikiHeaderActions variant="sidebar" /> }}
       searchToggle={{ enabled: false }}
     >
       {!result.ok && result.reason === 'unauthorized'

@@ -29,6 +29,147 @@ select {
   gap: 0.65rem;
 }
 
+.wiki-header-actions-sidebar {
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.wiki-header-actions-compact {
+  flex: 0 0 auto;
+  gap: 0.25rem;
+}
+
+.wiki-header-actions-sidebar .wiki-search {
+  width: 100%;
+}
+
+.wiki-header-actions-sidebar .wiki-chat-trigger {
+  width: 100%;
+  justify-content: center;
+}
+
+.wiki-search-compact-root {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.wiki-search-compact-trigger,
+.wiki-header-actions-compact .wiki-chat-trigger,
+.wiki-guide-link-compact {
+  display: inline-flex;
+  width: 2.4rem;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  min-height: 2.4rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.75rem;
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+  cursor: pointer;
+}
+
+.wiki-search-compact-trigger:hover,
+.wiki-header-actions-compact .wiki-chat-trigger:hover,
+.wiki-guide-link-compact:hover {
+  background: color-mix(in srgb, var(--wiki-accent) 10%, var(--color-fd-background));
+}
+
+.wiki-search-compact-trigger:focus-visible,
+.wiki-header-actions-compact .wiki-chat-trigger:focus-visible,
+.wiki-guide-link:focus-visible,
+.wiki-search-compact-heading button:focus-visible {
+  outline: 2px solid var(--wiki-accent);
+  outline-offset: 2px;
+}
+
+.wiki-search-compact-popover {
+  position: fixed;
+  z-index: 120;
+  top: calc(env(safe-area-inset-top) + var(--fd-header-height, 3.5rem) + 0.5rem);
+  inset-inline: 0.75rem;
+  width: min(30rem, calc(100vw - 1.5rem));
+  margin-inline: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 1rem;
+  background: var(--color-fd-background);
+  box-shadow: 0 20px 60px rgb(15 23 42 / 18%);
+}
+
+.wiki-search-compact-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+  color: var(--color-fd-foreground);
+  font-size: 0.9rem;
+}
+
+.wiki-search-compact-heading button {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--color-fd-muted-foreground);
+  cursor: pointer;
+}
+
+.wiki-search-compact-popover .wiki-search {
+  width: 100%;
+}
+
+.wiki-search-compact-popover .wiki-search-results {
+  position: static;
+  width: 100%;
+  max-height: min(55vh, 25rem);
+  margin-top: 0.55rem;
+  box-shadow: none;
+}
+
+.wiki-guide-link {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 999px;
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.wiki-guide-link:hover {
+  background: color-mix(in srgb, var(--wiki-accent) 9%, var(--color-fd-background));
+}
+
+.wiki-guide-link svg {
+  flex: 0 0 auto;
+  color: var(--wiki-accent);
+}
+
+.wiki-header-actions-sidebar .wiki-guide-link {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .wiki-header-actions-compact {
+    display: none;
+  }
+}
+
 .wiki-search {
   position: relative;
   width: min(19rem, 32vw);
@@ -461,8 +602,12 @@ select {
 }
 
 @media (max-width: 640px) {
-  .wiki-header-actions {
-    gap: 0.35rem;
+  .wiki-header-actions-compact {
+    gap: 0.25rem;
+  }
+
+  .wiki-header-actions-sidebar {
+    gap: 0.5rem;
   }
 
   .wiki-search {
@@ -479,20 +624,31 @@ select {
     font-size: 0.78rem;
   }
 
-  .wiki-chat-trigger {
+  .wiki-header-actions-compact .wiki-chat-trigger {
     width: 2.3rem;
+    min-width: 2.3rem;
+    height: 2.3rem;
     min-height: 2.3rem;
     justify-content: center;
     padding: 0;
   }
 
-  .wiki-chat-trigger span {
+  .wiki-header-actions-compact .wiki-chat-trigger span {
     position: absolute;
     width: 1px;
     height: 1px;
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  .wiki-search-compact-trigger,
+  .wiki-header-actions-compact .wiki-chat-trigger,
+  .wiki-guide-link-compact {
+    width: 2.3rem;
+    min-width: 2.3rem;
+    height: 2.3rem;
+    min-height: 2.3rem;
   }
 
   .wiki-chat-panel {
