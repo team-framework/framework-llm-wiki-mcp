@@ -1,0 +1,4 @@
+scenario,samples,before_tokens,after_tokens,reduction_percent
+reads,8,210278,40293,80.84
+updates,20,406787,93600,76.99
+creations,20,54898,57175,-4.15
