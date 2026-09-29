@@ -47,6 +47,7 @@ jobs:
       - name: Sync and restart service
         run: |
           app_dir=/home/chaeyn/apps/framework-llm-wiki-mcp
+          export WIKI_MEASUREMENT_RELEASE="$(git rev-parse HEAD)"
           install -d -m 700 "$app_dir"
           rsync -a --delete \
             --exclude '.env' \

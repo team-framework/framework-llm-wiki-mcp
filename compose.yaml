@@ -22,9 +22,14 @@ services:
       HERMES_WIKI_URL: http://127.0.0.1:8647
       WIKI_SERVICE_KEY: ${WIKI_SERVICE_KEY:?Set read-only wiki service key in .env}
       HERMES_WIKI_KEY: ${HERMES_WIKI_KEY:?Set shared inference key in .env}
+      WIKI_MEASUREMENT_PATH: /metrics/events.sqlite
+      WIKI_MEASUREMENT_SECRET: ${WIKI_MEASUREMENT_SECRET:?Set a separate identity hashing secret}
+      WIKI_MEASUREMENT_RELEASE: ${WIKI_MEASUREMENT_RELEASE:-unversioned}
+      WIKI_MEASUREMENT_MODE: ${WIKI_MEASUREMENT_MODE:-production}
     volumes:
       - ${WIKI_HOST_PATH:?Set WIKI_HOST_PATH to the canonical wiki checkout}:/wiki:ro
       - embedding-cache:/cache
+      - measurement-data:/metrics
     depends_on:
       - qdrant
       - embeddings
@@ -64,3 +69,5 @@ volumes:
     name: ${EMBEDDING_MODELS_VOLUME:-framework-llm-wiki-mcp_embedding-models}
   embedding-cache:
     name: ${EMBEDDING_CACHE_VOLUME:-framework-llm-wiki-mcp_embedding-cache}
+  measurement-data:
+    name: ${MEASUREMENT_VOLUME:-framework-llm-wiki-mcp_measurement-data}

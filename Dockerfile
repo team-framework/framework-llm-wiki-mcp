@@ -12,7 +12,7 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN apk add --no-cache git && npm ci --omit=dev
 COPY --from=build /app/dist ./dist
-RUN mkdir -p /cache && chown node:node /cache
+RUN mkdir -p /cache /metrics && chown node:node /cache /metrics
 USER node
 EXPOSE 3100
 CMD ["node", "dist/index.js"]

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { countTokens } from 'gpt-tokenizer/encoding/o200k_base';
 import type { WikiService } from './wiki.js';
+import { hashContent } from './sections.js';
 
 const DAY = 86_400_000;
 export const kstDay = (time: number) => new Date(time + 9 * 3_600_000).toISOString().slice(0, 10);
@@ -100,7 +101,7 @@ export class MeasurementStore {
     return id;
   }
   productFeedbackList(limit=20) {
-    return this.db.prepare("SELECT id,ts,release,categories,details,diagnostics FROM product_feedback WHERE mode='production' ORDER BY ts DESC LIMIT ?").all(Math.min(100,Math.max(1,limit))).map((row:any)=>({...row,categories:JSON.parse(row.categories),diagnostics:row.diagnostics?JSON.parse(row.diagnostics):null}));
+    return this.db.prepare("SELECT id,ts,release,categories,details,diagnostics FROM product_feedback WHERE mode='production' AND ts>=? ORDER BY ts DESC LIMIT ?").all(this.now()-90*DAY,Math.min(100,Math.max(1,limit))).map((row:any)=>({...row,categories:JSON.parse(row.categories),diagnostics:row.diagnostics?JSON.parse(row.diagnostics):null}));
   }
   report(days = 30) {
     this.prune();
@@ -121,6 +122,8 @@ export class MeasurementStore {
       const successful=group.filter(r=>r.status==='ok');
       const cached=provider.filter(f=>typeof f.provider_cached==='number'),reasoning=provider.filter(f=>typeof f.provider_reasoning==='number');
       return { release: group[0].release, client: group[0].client, feature: group[0].feature, requests: group.length,
+        first_seen_at:new Date(group[0].ts).toISOString(),last_seen_at:new Date(group.at(-1).ts).toISOString(),
+        corpus_commits:[...new Set(facts.map(f=>f.corpus_commit).filter(Boolean))],
         people: featurePeople, active_people_denominator: denominator, adoption_rate: ratio(featurePeople,denominator),
         errors: group.filter(r=>r.status==='error').length, latency_samples:successful.length,
         p50_ms: quantile(successful.map(r=>r.latency_ms),.5), p95_ms: successful.length>=20?quantile(successful.map(r=>r.latency_ms),.95):null,
@@ -163,6 +166,8 @@ export class MeasurementStore {
       retention, features, daily, feedback:{responses:feedback.length,positive,negative:feedback.length-positive,positive_rate:ratio(positive,feedback.length),
         eligible_answers:chatAnswers,response_rate:ratio(feedback.length,chatAnswers),reasons:[...FEEDBACK_REASONS].map(reason=>({reason,count:feedback.filter(f=>f.reason===reason).length})),by_release:[...new Set(feedback.map(f=>f.release))].map(release=>({release,responses:feedback.filter(f=>f.release===release).length,positive:feedback.filter(f=>f.release===release&&f.rating==='positive').length}))},
       instrumentation:{dropped_events_this_process:this.dropped},
+      definitions:{version:'1',identity:'github_login_hmac',tokenizer:'o200k_base',tokenizer_package:'gpt-tokenizer@4.0.0',shadow_sample_probability:.2,
+        retention:'first_observed_in_retained_90_days_exact_KST_day',latency:'successful_handler_including_measurement_work_excluding_network'},
       caveats:['shadow estimates compare the returned evidence documents, not a historical user session or billing','retention uses first observed activity within the retained 90 days; no cross-client identity matching for Discord','validation and service identities are excluded from people and retention; today is partial'] };
   }
   close() { this.db.close(); }
@@ -193,12 +198,13 @@ export class WikiMeasurements {
         for (const source of paths) {
           const note=await this.wiki.getNote(source);
           if (evidence.some((item:any)=>item.path===source && item.note_hash!==note.note_hash)) { paired=false; break; }
-          const {note_hash:_hash,...legacy}=note;
-          if (!this.legacyCache.has(note.note_hash)) {
+          const {note_hash:_hash,display:_display,...legacy}=note;
+          const serialized=JSON.stringify(legacy,null,2),cacheKey=hashContent(serialized);
+          if (!this.legacyCache.has(cacheKey)) {
             if (this.legacyCache.size>=1024) this.legacyCache.clear();
-            this.legacyCache.set(note.note_hash,countTokens(JSON.stringify(legacy,null,2)));
+            this.legacyCache.set(cacheKey,countTokens(serialized));
           }
-          baseline+=this.legacyCache.get(note.note_hash)!;
+          baseline+=this.legacyCache.get(cacheKey)!;
         }
         if (paired) { measure.legacy_tokens=baseline; measure.baseline_method='same_evidence_documents_legacy_full_read'; }
       }
