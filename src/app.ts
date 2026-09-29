@@ -9,7 +9,7 @@ import { GitHubAuth } from "./auth.js";
 import { createMcpServer } from "./mcp.js";
 import { WikiVectorIndex } from "./vector.js";
 import { WikiService } from "./wiki.js";
-import { MeasurementStore, WikiMeasurements, type MeasurementActor } from "./measurements.js";
+import { MeasurementStore, WikiMeasurements, WEB_INTERACTION_FEATURES, type MeasurementActor } from "./measurements.js";
 import type { FastifyRequest, FastifyReply } from "fastify";
 
 export async function buildApp() {
@@ -201,7 +201,7 @@ app.post("/api/chat", async (request, reply) => {
 });
 app.post("/api/events", async (request, reply) => {
   if (!sameOrigin(request, reply)) return;
-  const input = z.object({ feature: z.enum(["web.document_view", "web.search_open", "web.citation_open"]), path: z.string().min(1).max(1000).optional(), parent_event_id: z.string().uuid().optional() }).strict().parse(request.body);
+  const input = z.object({ feature: z.enum(WEB_INTERACTION_FEATURES), path: z.string().min(1).max(1000).optional(), parent_event_id: z.string().uuid().optional() }).strict().parse(request.body);
   if (input.path) await wiki.getOutline(input.path);
   if (!measurementStore) return { measurement_id: null, measurement_status: "disabled" };
   if (input.parent_event_id) {

@@ -134,3 +134,23 @@ test('daily reports distinguish unobserved days from measured person and service
     assert.equal(next.daily.find(row=>row.day==='2026-09-29')?.requests,3);
   } finally {store.close();}
 });
+
+
+test('chat layout and shared history usage are counted without implying measured response latency', () => {
+  const store = new MeasurementStore(':memory:', secret, 'chat-release');
+  try {
+    for (const feature of ['web.chat_popup_open', 'web.chat_split_open', 'web.chat_page_open', 'web.chat_history_open']) {
+      assert.ok(store.record(actor('a'), { feature, status: 'ok', latency_ms: 0 }));
+    }
+    store.record(actor('b'), event);
+    const report = store.report();
+    const history = report.features.find(row => row.feature === 'web.chat_history_open')!;
+    assert.equal(history.requests, 1);
+    assert.equal(history.people, 1);
+    assert.equal(history.adoption_rate, 0.5);
+    assert.equal(history.p50_ms, null);
+    assert.equal(history.p95_status, 'not_applicable');
+    assert.equal(history.latency_samples, 0);
+    assert.equal(report.feedback.eligible_answers, 0);
+  } finally { store.close(); }
+});

@@ -15,7 +15,9 @@ export type Measurement = {
   truncated?: boolean; retrieval_mode?: string; provider_input?: number; provider_output?: number;
   provider_cached?: number; provider_reasoning?: number; reason?: string; document_hash?: string; parent_event_id?: string; work_ms?: number;
 };
-const FEATURES = new Set(['web.search','web.chat','web.document_view','web.search_open','web.citation_open',
+export const WEB_INTERACTION_FEATURES = ['web.document_view','web.search_open','web.citation_open',
+  'web.chat_popup_open','web.chat_split_open','web.chat_page_open','web.chat_history_open'] as const;
+const FEATURES = new Set(['web.search','web.chat',...WEB_INTERACTION_FEATURES,
   'mcp.search_wiki','mcp.read_note','mcp.get_context','mcp.get_note_outline','mcp.read_sections','mcp.get_current_metrics',
   'discord.context','discord.note','discord.outline']);
 const ratio = (a: number, b: number) => b ? a / b : null;
@@ -119,7 +121,8 @@ export class MeasurementStore {
       const provider = facts.filter(f=>typeof f.provider_input === 'number' && typeof f.provider_output === 'number');
       const featurePeople = new Set(group.filter(r=>r.actor_kind==='person').map(r=>r.actor)).size;
       const denominator=new Set(people.filter(r=>r.release===group[0].release && r.client===group[0].client).map(r=>r.actor)).size;
-      const successful=group.filter(r=>r.status==='ok');
+      const latencyApplicable = !(WEB_INTERACTION_FEATURES as readonly string[]).includes(group[0].feature);
+      const successful=latencyApplicable ? group.filter(r=>r.status==='ok') : [];
       const cached=provider.filter(f=>typeof f.provider_cached==='number'),reasoning=provider.filter(f=>typeof f.provider_reasoning==='number');
       return { release: group[0].release, client: group[0].client, feature: group[0].feature, requests: group.length,
         first_seen_at:new Date(group[0].ts).toISOString(),last_seen_at:new Date(group.at(-1).ts).toISOString(),
@@ -127,7 +130,7 @@ export class MeasurementStore {
         people: featurePeople, active_people_denominator: denominator, adoption_rate: ratio(featurePeople,denominator),
         errors: group.filter(r=>r.status==='error').length, latency_samples:successful.length,
         p50_ms: quantile(successful.map(r=>r.latency_ms),.5), p95_ms: successful.length>=20?quantile(successful.map(r=>r.latency_ms),.95):null,
-        p95_status:successful.length>=20?'measured':'insufficient_samples',
+        p95_status:!latencyApplicable?'not_applicable':successful.length>=20?'measured':'insufficient_samples',
         payload_tokens: facts.some(f=>typeof f.payload_tokens==='number') ? facts.reduce((s,f)=>s+(f.payload_tokens??0),0) : null,
         paired_shadow: { samples: paired.length, legacy_tokens: paired.length ? baseline : null, new_tokens: paired.length ? payload : null,
           reduction_rate: ratio(baseline-payload,baseline), method: 'same_evidence_documents_legacy_full_read', tokenizer: 'o200k_base' },
