@@ -177,7 +177,7 @@ hybrid 첫 반환은 10개 중 9개 질문에서 예산 때문에 일부를 생�
 
 문서·Bot·Display 예시·스킬 개선 PR과 위키 동기화 제외 PR은 병합됐다. 위키 문서, Bot 가이드, 사용 현황 API의 인증된 응답 200과 벡터 색인 ready를 재확인했다. 하네스 제외 변경은 Actions에서 위키를 빼고 다른 4개 저장소를 처리한 실행과 webhook 배포 성공을 확인했다.
 
-위키의 [최근 자동 배포 실행](https://github.com/team-framework/framework-llm-wiki-mcp/actions/runs/36580789412)은 `systemctl --user`가 사용자 세션 bus 환경을 찾지 못해 재시작 단계에서 실패했다. 기존에 배포한 웹·검색 서비스는 계속 정상 응답한다. CI의 사용자 서비스 제어 환경은 별도로 보완해야 하며, PR 병합을 최신 자동 배포 성공으로 간주하지 않는다.
+위키의 [기존 자동 배포 실행](https://github.com/team-framework/framework-llm-wiki-mcp/actions/runs/36580789412)은 `systemctl --user`가 사용자 세션 bus 환경을 찾지 못해 실패했다. [수정 PR #23](https://github.com/team-framework/framework-llm-wiki-mcp/pull/23)에서 실행 계정의 bus 환경을 설정하고 연결·재시작 상태를 검사하도록 고쳤다. 이어진 [자동 배포 실행 36584735096](https://github.com/team-framework/framework-llm-wiki-mcp/actions/runs/36584735096)이 성공했다. 운영 release가 병합 commit `c09981d6fc8e19e4c188b5db73194622dddbe63f`와 일치하며, 인증 문서 200·미인증 302·벡터 ready·실제 챗봇 답변과 출처 반환을 확인했다.
 
 API/MCP 테스트 61개, Bot 테스트 36개, 하네스 제외 테스트 13개와 각 작업의 타입 검사·관련 빌드를 확인했다. 실제 Hermes OAuth 답변·출처·usage 반환과 의견 저장은 초기 배포 때 검증했다. 실제 팀원이 Discord 제안을 승인해 PR을 만드는 사용 장면과 장기간 재방문·만족도 효과는 이번 검증 범위 밖이다.
 
