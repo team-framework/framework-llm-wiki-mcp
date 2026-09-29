@@ -49,6 +49,14 @@ export class GitHubAuth {
     }
   }
 
+  authorizeServiceRead(request: FastifyRequest): boolean {
+    const key = process.env.WIKI_SERVICE_KEY;
+    if (!key || key.length < 32 || request.method !== "GET") return false;
+    if (!["/api/context", "/api/outline", "/api/note"].includes(request.url.split("?")[0])) return false;
+    const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+    return Boolean(bearer && safeEqual(bearer, key));
+  }
+
   identity(request: FastifyRequest): string | null {
     if (!this.enabled) return "local-development";
     const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];

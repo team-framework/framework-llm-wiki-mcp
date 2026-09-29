@@ -39,3 +39,17 @@ test("accepts only self-issued access tokens for the MCP resource", async () => 
   assert.equal(await auth.authorize(request(wrongAudience)), false);
   assert.equal(await auth.authorize(request("github-user-token")), false);
 });
+
+
+test("service credentials authorize only scoped read APIs", () => {
+  const auth = createAuth();
+  process.env.WIKI_SERVICE_KEY = "test-service-key-with-at-least-32-chars";
+  const request = (method: string, url: string, key = process.env.WIKI_SERVICE_KEY) => ({ method, url, headers: { authorization: `Bearer ${key}` } }) as never;
+  assert.equal(auth.authorizeServiceRead(request("GET", "/api/context?q=question")), true);
+  assert.equal(auth.authorizeServiceRead(request("GET", "/api/note?path=a.md")), true);
+  assert.equal(auth.authorizeServiceRead(request("POST", "/api/chat")), false);
+  assert.equal(auth.authorizeServiceRead(request("POST", "/mcp")), false);
+  assert.equal(auth.authorizeServiceRead(request("GET", "/docs/private")), false);
+  assert.equal(auth.authorizeServiceRead(request("GET", "/api/note", "wrong")), false);
+  delete process.env.WIKI_SERVICE_KEY;
+});

@@ -2,19 +2,62 @@ services:
   wiki-mcp:
     build: .
     restart: unless-stopped
+    # The Hermes OAuth bridge listens only on the Linux host loopback.
+    network_mode: host
     environment:
       WIKI_ROOT: /wiki
-      HOST: 0.0.0.0
-      PORT: 3100
+      HOST: 127.0.0.1
+      PORT: ${WIKI_PORT:-3100}
       AUTH_MODE: github
-      PUBLIC_BASE_URL: https://framework-wiki.chaeyn.com
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://framework-wiki.chaeyn.com}
       GITHUB_ORG: team-framework
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:?Set GITHUB_CLIENT_ID in .env}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:?Set GITHUB_CLIENT_SECRET in .env}
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://framework-wiki.chaeyn.com}
+      WIKI_WEB_URL: http://127.0.0.1:${WIKI_WEB_PORT:-3101}
+      QDRANT_URL: http://127.0.0.1:${QDRANT_PORT:-6336}
+      EMBEDDING_URL: http://127.0.0.1:${EMBEDDING_PORT:-8091}
+      EMBEDDING_CACHE_DIR: /cache/embeddings
+      HERMES_WIKI_URL: http://127.0.0.1:8647
+      WIKI_SERVICE_KEY: ${WIKI_SERVICE_KEY:?Set read-only wiki service key in .env}
+      HERMES_WIKI_KEY: ${HERMES_WIKI_KEY:?Set shared inference key in .env}
     volumes:
-      # The sync process is owned separately. This service never runs git pull.
       - ${WIKI_HOST_PATH:?Set WIKI_HOST_PATH to the canonical wiki checkout}:/wiki:ro
+      - embedding-cache:/cache
+    depends_on:
+      - qdrant
+      - embeddings
+      - wiki-web
+  wiki-web:
+    build: ./web
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      HOSTNAME: 127.0.0.1
+      PORT: ${WIKI_WEB_PORT:-3101}
+      WIKI_API_URL: http://127.0.0.1:${WIKI_PORT:-3100}
+      NEXT_TELEMETRY_DISABLED: 1
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    restart: unless-stopped
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
     ports:
-      - "127.0.0.1:3100:3100"
+      - "127.0.0.1:${QDRANT_PORT:-6336}:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    mem_limit: 1g
+  embeddings:
+    build: ./deploy/embeddings
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${EMBEDDING_PORT:-8091}:8090"
+    volumes:
+      - embedding-models:/models
+    cpus: 2
+    mem_limit: 3g
+volumes:
+  qdrant-data:
+  embedding-models:
+  embedding-cache:
