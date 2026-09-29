@@ -49,13 +49,17 @@ export class GitHubAuth {
     }
   }
 
-  async authorize(request: FastifyRequest) {
-    if (!this.enabled) return true;
+  identity(request: FastifyRequest): string | null {
+    if (!this.enabled) return "local-development";
     const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-    if (bearer) return Boolean(this.verifyAccessToken(bearer));
+    if (bearer) return this.verifyAccessToken(bearer)?.login ?? null;
     const session = this.readCookie(request, cookieName);
     const payload = session && this.verify<Session>(session);
-    return Boolean(payload && payload.expiresAt > Date.now());
+    return payload && payload.expiresAt > Date.now() ? payload.login : null;
+  }
+
+  async authorize(request: FastifyRequest) {
+    return this.identity(request) !== null;
   }
 
   rejectResourceRequest(reply: FastifyReply) {

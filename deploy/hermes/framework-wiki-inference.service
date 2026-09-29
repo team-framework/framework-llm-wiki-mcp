@@ -1,0 +1,17 @@
+[Unit]
+Description=Framework Wiki inference through Hermes ChatGPT OAuth
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.hermes/hermes-agent
+EnvironmentFile=%h/apps/framework-wiki-inference/.env
+ExecStart=%h/.hermes/hermes-agent/venv/bin/python %h/apps/framework-wiki-inference/wiki_bridge.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
