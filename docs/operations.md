@@ -36,3 +36,11 @@ Linux host network를 사용하므로 API와 Fumadocs의 수신 주소를 loopba
 `max_chars`는 반환할 원문 근거 JSON의 문자 예산이다. 전체 HTTP 응답이나 모델 추론 토큰 한도가 아니다. 큰 표·코드블록에는 `required_chars`가 나올 수 있다. `truncated`와 `next_cursor`를 확인하고 필요한 근거를 이어 읽는다. cursor는 해당 프로세스에서 10분간 유효하므로 만료·재시작 뒤에는 검색부터 다시 시작한다.
 
 토큰 비교는 고정된 위키 commit과 tokenizer를 기록한다. 신규 내용 작성량, 검색 recall, 실제 provider 사용량을 응답 크기와 구분한다. 비공개 원문과 평가 payload는 공개 코드 저장소에 올리지 않는다.
+
+## 사용량과 의견 보존
+
+`WIKI_MEASUREMENT_SECRET`는 신원 가명 처리 전용 key이고 다른 서비스 key와 분리한다. `WIKI_MEASUREMENT_RELEASE`에는 배포 commit을 넣는다. `/metrics/events.sqlite`는 별도 Docker volume에 두고 컨테이너 교체 뒤에도 보존한다. 원시 이벤트와 제출 의견은 90일 보존하며 매시간 정리한다. `/docs/insights`의 JSON export에는 생성 시각·기간·release·표본 수가 들어간다. 개선 전후 비교 자료는 기간이 끝날 때 내려받아 별도로 보관한다.
+
+DB 백업은 SQLite backup API 또는 `VACUUM INTO`로 일관된 snapshot을 만든다. 실행 중인 DB 파일 하나만 복사하면 WAL의 최신 기록을 놓칠 수 있다. DB와 백업은 접근을 제한하고 원문 의견의 보관 기간을 맞춘다. HMAC key를 바꾸면 같은 사람의 관측 연결이 끊기므로 회전 시각을 기록한다.
+
+배포 smoke는 `integration-smoke` 신원을 사용하고 운영 사용자·재방문 집계에서 제외한다. provider usage가 존재하는 실응답, 의견 저장, 인증 거부, 문서 화면을 각각 확인한다. 일반 팀원의 세션으로 자동 시험 이벤트를 만들면 실사용 지표에 섞이므로 시험 환경이나 검증 신원을 사용한다.
