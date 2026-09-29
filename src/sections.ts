@@ -113,7 +113,8 @@ export function sectionBlocks(content: string): MarkdownBlock[] {
 }
 
 export function queryTerms(query: string) {
-  return [...new Set(query.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}_]+(?:[./:-][\p{L}\p{N}_]+)*/gu) ?? [])].slice(0, 32);
+  const stopwords = new Set(["수", "때", "등", "및", "함께", "어디서", "어떻게", "알려줘", "있어", "있나요", "무엇", "대한", "그리고", "채"]);
+  return [...new Set(query.normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}_]+(?:[./:-][\p{L}\p{N}_]+)*/gu) ?? [])].filter((term) => !stopwords.has(term)).slice(0, 32);
 }
 
 export function termFrequency(text: string, term: string) {

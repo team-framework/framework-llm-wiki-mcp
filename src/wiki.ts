@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -57,24 +58,27 @@ function boundedInteger(value: number | undefined, fallback: number, maximum: nu
   if (!Number.isInteger(value) || value < 1 || value > maximum) throw new Error(`${name} must be an integer between 1 and ${maximum}.`);
   return value;
 }
-function cursorEncode(cursor: Cursor) { return Buffer.from(JSON.stringify(cursor)).toString("base64url"); }
-function cursorDecode(value: string): Cursor {
-  if (value.length > 100_000) throw new Error("Invalid section cursor.");
-  let cursor: Cursor;
-  try { cursor = JSON.parse(Buffer.from(value, "base64url").toString("utf8")); } catch { throw new Error("Invalid section cursor."); }
-  if (cursor.v !== 1 || !Array.isArray(cursor.refs) || !cursor.refs.length || cursor.refs.length > 64
-    || !Number.isInteger(cursor.index) || cursor.index < 0 || cursor.index >= cursor.refs.length
-    || !Number.isInteger(cursor.offset) || cursor.offset < 0
-    || cursor.refs.some((ref) => typeof ref?.path !== "string" || typeof ref.section_id !== "string" || typeof ref.hash !== "string")) throw new Error("Invalid section cursor.");
-  return cursor;
-}
 
 export class WikiService {
+  private readonly cursors = new Map<string, { expires: number; state: Cursor }>();
   private readonly cache = new Map<string, CacheEntry>();
   private indexSignature = "";
   private index: Array<{ note: Note; section: MarkdownSection }> = [];
   private semanticSearch?: SemanticSearchProvider;
   constructor(readonly root: string) {}
+  private saveCursor(state: Cursor) {
+    const now = Date.now();
+    for (const [key, entry] of this.cursors) if (entry.expires <= now) this.cursors.delete(key);
+    while (this.cursors.size >= 1024) this.cursors.delete(this.cursors.keys().next().value!);
+    const key = randomBytes(18).toString("base64url");
+    this.cursors.set(key, { expires: now + 10 * 60_000, state: structuredClone(state) });
+    return key;
+  }
+  private loadCursor(value: string): Cursor {
+    const entry = /^[A-Za-z0-9_-]{24}$/.test(value) ? this.cursors.get(value) : undefined;
+    if (!entry || entry.expires <= Date.now()) throw new Error("Invalid section cursor (expired or server restarted).");
+    return structuredClone(entry.state);
+  }
   setSemanticSearch(provider: SemanticSearchProvider) { this.semanticSearch = provider; }
 
   async listNotes(): Promise<Note[]> {
@@ -127,14 +131,23 @@ export class WikiService {
     const limit = boundedInteger(options.limit, 8, 50, "limit");
     if (options.cursor) return { query, ...(await this.readSections([], options)) };
     const { hits, retrieval } = await this.rankSections(query, options);
-    const refs = hits.slice(0, limit).map(({ note, section }) => ({ path: note.path, section_id: section.section_id, hash: section.hash }));
+    // Reserve the first context pass for several documents; expansion still exposes all selected sources.
+    const perDocument = new Map<string, number>();
+    const firstPass: RankedSection[] = [], deferred: RankedSection[] = [];
+    for (const hit of hits) {
+      const count = perDocument.get(hit.note.path) ?? 0;
+      if (count < 2) { firstPass.push(hit); perDocument.set(hit.note.path, count + 1); }
+      else deferred.push(hit);
+    }
+    const selected = [...firstPass, ...deferred].slice(0, limit);
+    const refs = selected.map(({ note, section }) => ({ path: note.path, section_id: section.section_id, hash: section.hash }));
     return { query, retrieval, ...(await this.readSections(refs, options)) };
   }
 
   async readSections(refs: SectionRef[], options: ReadOptions = {}) {
     const maxChars = boundedInteger(options.maxChars, DEFAULT_CONTEXT_CHARS, MAX_CONTEXT_CHARS, "maxChars");
     if (!Array.isArray(refs) || refs.length > 64) throw new Error("At most 64 section references are allowed.");
-    const state: Cursor = options.cursor ? cursorDecode(options.cursor) : { v: 1, refs: refs.map((ref) => ({ ...ref })), index: 0, offset: 0 };
+    const state: Cursor = options.cursor ? this.loadCursor(options.cursor) : { v: 1, refs: refs.map((ref) => ({ ...ref })), index: 0, offset: 0 };
     const selected = await Promise.all(state.refs.map(async (ref) => {
       const entry = await this.noteSections(ref.path);
       const section = entry.sections.find((section) => section.section_id === ref.section_id);
@@ -171,7 +184,7 @@ export class WikiService {
       if (truncated) break;
     }
     return { evidence, evidence_chars: JSON.stringify(evidence).length, budget_chars: maxChars,
-      truncated, next_cursor: truncated ? cursorEncode(state) : null,
+      truncated, next_cursor: truncated ? this.saveCursor(state) : null,
       ...(requiredChars ? { required_chars: requiredChars, continuation: "Pass next_cursor to read_sections; increase max_chars if one Markdown block exceeds the budget." } : {}) };
   }
 
@@ -229,19 +242,31 @@ export class WikiService {
         const term = terms[index]; const tf = frequencies[candidateIndex][index];
         const idf = Math.log(1 + (candidates.length - df[index] + 0.5) / (df[index] + 0.5));
         score += idf * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * section.content.length / (averageLength || 1)));
-        score += (termFrequency(section.heading, term) ? 8 : 0) + (termFrequency(section.headings.join(" "), term) ? 3 : 0)
+        const directHeading = termFrequency(section.heading, term) > 0;
+        const contextBoost = (termFrequency(section.headings.join(" "), term) ? 3 : 0)
           + (termFrequency(note.title, term) ? 3 : 0) + (termFrequency(String(note.metadata.question ?? ""), term) ? 4 : 0)
           + (termFrequency(note.path, term) ? 2 : 0);
+        score += directHeading ? 8 : 0;
+        // A matching document title must not make every unrelated section a strong match.
+        score += (tf || directHeading) ? contextBoost : Math.min(contextBoost, 0.3);
       }
       return { note, section, score };
     }).filter(({ score }) => score > 0).sort(rankOrder);
-    if (!this.semanticSearch) return { hits: lexical, retrieval };
+    const prioritizeRecordedMetrics = (hits: RankedSection[]) => {
+      const identifiers = terms.filter((term) => /^[a-z][a-z0-9]*_[a-z0-9_]+$/i.test(term));
+      if (!identifiers.length || /과거|이력|당시|역사|변천/.test(query)) return hits;
+      const authoritative = candidates.filter(({ note, section }) => note.path === "_현행_수치.md" && identifiers.some((term) => termFrequency(section.content, term)));
+      if (!authoritative.length) return hits;
+      const keys = new Set(authoritative.map((hit) => `${hit.note.path}\0${hit.section.section_id}`));
+      return [...authoritative.map((hit) => ({ ...hit, score: (hits[0]?.score ?? 0) + 1 })), ...hits.filter((hit) => !keys.has(`${hit.note.path}\0${hit.section.section_id}`))];
+    };
+    if (!this.semanticSearch) return { hits: prioritizeRecordedMetrics(lexical), retrieval };
     try {
       const semantic = await this.semanticSearch(query, options);
       retrieval.semantic_status = semantic.status;
       const valid = new Map(candidates.map((entry) => [`${entry.note.path}\0${entry.section.section_id}`, entry]));
       const fusion = new Map<string, RankedSection>();
-      lexical.forEach((hit, index) => fusion.set(`${hit.note.path}\0${hit.section.section_id}`, { ...hit, score: 1 / (60 + index + 1) }));
+      lexical.slice(0, 40).forEach((hit, index) => fusion.set(`${hit.note.path}\0${hit.section.section_id}`, { ...hit, score: 1 / (60 + index + 1) }));
       let accepted = 0;
       const seen = new Set<string>();
       semantic.hits.slice(0, 100).forEach((hit, index) => {
@@ -255,8 +280,8 @@ export class WikiService {
         fusion.set(key, { ...current, score: (existing?.score ?? 0) + 1 / (60 + index + 1) });
       });
       if (accepted) retrieval.mode = "hybrid";
-      return { hits: accepted ? [...fusion.values()].sort(rankOrder) : lexical, retrieval };
-    } catch { return { hits: lexical, retrieval }; }
+      return { hits: prioritizeRecordedMetrics(accepted ? [...fusion.values()].sort(rankOrder) : lexical), retrieval };
+    } catch { return { hits: prioritizeRecordedMetrics(lexical), retrieval }; }
   }
   private matches(note: Note, options: SearchOptions) {
     return (!options.domain || includesMetadataValue(note.metadata.domain, options.domain))

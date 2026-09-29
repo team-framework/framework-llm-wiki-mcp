@@ -136,3 +136,15 @@ test("hybrid search uses fresh semantic hits, filters stale hashes and reports f
     assert.ok(fallback.evidence.some((item) => item.content.includes("토큰")));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("continuation handles remain short and reject use in a different server instance", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "wiki-cursor-test-"));
+  try {
+    await writeFile(path.join(root, "long.md"), "# Heading\n\n" + ("a".repeat(100) + "\n\n").repeat(20));
+    const wiki = new WikiService(root);
+    const first = await wiki.getContext("Heading", { maxChars: 1000 });
+    assert.equal(first.truncated, true);
+    assert.equal(first.next_cursor?.length, 24);
+    await assert.rejects(new WikiService(root).readSections([], { cursor: first.next_cursor! }), /Invalid section cursor/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
