@@ -61,6 +61,8 @@ flowchart LR
 - 챗봇은 `gpt-6-luna`, `low`를 기본으로 사용하고 `none/low/medium/high/xhigh/max`를 선택할 수 있다.
 - 서버의 Hermes OAuth 인증을 이용하는 별도 추론 경로에 근거·제한된 대화 기록을 보낸다. 이 경로는 shell·파일 수정·Hermes 전체 도구를 노출하지 않는다.
 - 사실과 제안을 구분하고 출처 링크를 반환한다. API key·OAuth token은 브라우저에 전달하지 않는다.
+- 문서 화면의 위키 Agent는 작은 창과 문서·채팅 분할 보기를 제공하며 `/chat`에서 채팅만 열 수 있다. 화면을 전환해도 같은 대화를 사용한다.
+- 웹 대화 원문은 별도 SQLite에 저장한다. 로그인한 팀원이 함께 조회하고 이어서 질문하며, 모델 입력은 최근 대화 일부로 제한한다. 버전 검사와 요청 ID로 동시 작성·재시도 중복을 처리한다.
 
 [Hermes API 안내](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server), [GPT-6 Luna 추론 강도](https://developers.openai.com/api/docs/models/gpt-6-luna), [Fumadocs](https://www.fumadocs.dev/docs).
 
