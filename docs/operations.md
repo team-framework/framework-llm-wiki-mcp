@@ -68,3 +68,15 @@ DB 백업은 SQLite backup API 또는 `VACUUM INTO`로 일관된 snapshot을 만
 서비스 키가 허용하는 MCP 범위는 `POST /mcp`의 초기화·ping·도구 목록과 현재 명시된 읽기 도구 7개다. 새 도구는 인증 allowlist 검토 전까지 자동으로 열리지 않는다. 공용 대화·사용 지표·피드백 API와 임의 MCP 메서드, JSON-RPC batch는 허용하지 않는다. 호출은 사람 사용률에서 제외하는 Discord 서비스 신원으로 기록한다.
 
 Hermes 설정에서는 OAuth 대신 `headers.Authorization: Bearer ${FRAMEWORK_WIKI_SERVICE_KEY}`를 사용한다. 실제 값은 서버의 비밀 환경 파일에만 저장하며 저장소·로그에 기록하지 않는다. Gateway 재시작 후 도구 목록과 실제 `get_context` 호출을 확인한다. 위키 갱신은 Discord Bot 저장소의 제안·참여자 승인·Draft PR 흐름을 사용한다.
+
+## 웹 Wiki Agent 문서 PR
+
+`/업데이트` 뒤에 문서 경로와 생성·수정할 내용 또는 삭제 이유를 적는다. 명령만 보내면 최근 대화의 사용자 요청을 참고한다. 모델에는 최근 12개 메시지와 대상 문서의 전체 원문을 합계 40,000자까지 전달한다. 원문을 예산 안에서 읽지 못한 문서의 수정·삭제는 거부한다. 불분명한 요청은 추가 정보를 묻는다. 한 변경안은 최대 4개 문서이며 생성·수정할 본문 합계는 50,000자 이하이다.
+
+변경안은 채팅 DB에 보존한다. 요청한 팀원이 변경 전후 내용을 확인하고 `PR 열기`를 누르면 Framework Bot이 정본 위키 저장소에 커밋하고 Draft PR을 연다. 다른 팀원은 변경안과 PR을 읽을 수 있다. API의 읽기 전용 서비스 key는 이 기능에 접근할 수 없다. 정본 checkout의 read-only mount와 MCP 읽기 범위는 유지한다.
+
+서버 `.env`에 `WIKI_GITHUB_APP_CLIENT_ID`, `WIKI_GITHUB_APP_PRIVATE_KEY_HOST_PATH`, `WIKI_GITHUB_REPOSITORY`, `WIKI_TRACKING_ISSUE`를 설정하고 `COMPOSE_FILE=compose.yaml:compose.wiki-updates.yaml`을 추가한다. 추적 이슈는 정본 위키 저장소에 미리 만든다. 기존 Framework Bot은 GitHub의 `framework-harness-sync[bot]` 계정을 사용한다. `WIKI_GITHUB_APP_SLUG` 기본값도 `framework-harness-sync`이며 App 응답의 slug가 일치해야 한다. 대상 저장소에 설치하고 Contents write·Pull requests write 권한을 부여한다. 개인 토큰 fallback을 제공하지 않는다. PEM을 Docker secret으로 읽기 전용 연결하고 원문과 토큰을 응답·로그에 출력하지 않는다. 키 mount와 App·이슈 설정이 없으면 기존 서비스는 실행되며 업데이트 요청에 준비 중 안내를 반환한다.
+
+운영자가 `docker compose up -d --build`로 재시작한 뒤 검증 신원의 채팅에서 변경안과 Draft PR 생성, GitHub의 Bot 작성자와 커밋 author·committer를 확인한다. 합성 테스트 문서는 운영 문서와 구분한다. 위키 반영은 팀원의 PR 검토·병합과 정본 동기화 이후에 확인한다.
+
+PR 생성 직전에 GitHub 기본 브랜치의 대상 원문 hash를 비교한다. 생성 경로가 이미 있거나 원문이 바뀌면 409를 반환하고 새 변경안을 요청한다. 삭제 tree 항목은 `sha: null`로 기록한다. 변경안마다 고정된 브랜치와 PR 표식을 사용해 응답 유실·재시작 후 재시도에서도 기존 PR과 브랜치를 검증하고 재사용한다. GitHub 오류 응답·토큰은 사용자에게 전달하지 않는다.

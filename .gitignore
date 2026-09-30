@@ -16,3 +16,4 @@ innolive.zip
 web/.next/
 web/next-env.d.ts
 web/tsconfig.tsbuildinfo
+test-results/

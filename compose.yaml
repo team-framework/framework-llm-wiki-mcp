@@ -24,6 +24,11 @@ services:
       HERMES_WIKI_KEY: ${HERMES_WIKI_KEY:?Set shared inference key in .env}
       WIKI_MEASUREMENT_PATH: /metrics/events.sqlite
       WIKI_CHAT_PATH: /chat-data/history.sqlite
+      WIKI_GITHUB_REPOSITORY: ${WIKI_GITHUB_REPOSITORY:-team-framework/framework-llm-wiki}
+      WIKI_GITHUB_APP_CLIENT_ID: ${WIKI_GITHUB_APP_CLIENT_ID:-}
+      WIKI_GITHUB_APP_SLUG: ${WIKI_GITHUB_APP_SLUG:-framework-harness-sync}
+      WIKI_GITHUB_APP_PRIVATE_KEY_PATH: ${WIKI_GITHUB_APP_PRIVATE_KEY_PATH:-}
+      WIKI_TRACKING_ISSUE: ${WIKI_TRACKING_ISSUE:-}
       WIKI_MEASUREMENT_SECRET: ${WIKI_MEASUREMENT_SECRET:?Set a separate identity hashing secret}
       WIKI_MEASUREMENT_RELEASE: ${WIKI_MEASUREMENT_RELEASE:-unversioned}
       WIKI_MEASUREMENT_MODE: ${WIKI_MEASUREMENT_MODE:-production}

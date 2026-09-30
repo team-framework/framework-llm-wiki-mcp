@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { ChatInput } from "./chat.js";
 
 export type Conversation = { id: string; title: string; created_at: number; updated_at: number; version: number; message_count: number };
-export type SavedMessage = { id: string; seq: number; role: "user" | "assistant"; content: string; created_at: number; author?: string; sources?: unknown[]; measurement_id?: string | null; can_feedback?: boolean };
+export type SavedMessage = { id: string; seq: number; role: "user" | "assistant"; content: string; created_at: number; author?: string; sources?: unknown[]; measurement_id?: string | null; can_feedback?: boolean; update_id?: string };
 type RequestRow = { request_id: string; conversation_id: string; identity: string; fingerprint: string; status: string; response: string | null };
 
 export class HistoryError extends Error {
@@ -38,6 +38,7 @@ export class ChatHistoryStore {
         request_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, identity TEXT NOT NULL,
         fingerprint TEXT NOT NULL, status TEXT NOT NULL, response TEXT);
       CREATE INDEX IF NOT EXISTS chat_requests_conversation ON chat_requests(conversation_id);`);
+    if (!this.db.prepare("PRAGMA table_info(messages)").all().some((column) => column.name === "update_id")) this.db.exec("ALTER TABLE messages ADD COLUMN update_id TEXT");
   }
 
   close() { this.db.close(); }
@@ -95,18 +96,27 @@ export class ChatHistoryStore {
     return { id: row.id as string, seq: row.seq as number, role: row.role as SavedMessage["role"], content: row.content as string,
       created_at: row.created_at as number, ...(row.author ? { author: row.author as string } : {}),
       ...(row.sources ? { sources: JSON.parse(row.sources as string) as unknown[] } : {}),
-      ...(row.measurement_id ? { measurement_id: row.measurement_id as string } : {}) };
+      ...(row.measurement_id ? { measurement_id: row.measurement_id as string } : {}), ...(row.update_id ? { update_id: row.update_id as string } : {}) };
   }
 
   context(id: string): { history: ChatInput["history"]; truncated: boolean } {
-    const rows = this.db.prepare("SELECT role,content FROM messages WHERE conversation_id=? ORDER BY seq DESC LIMIT 13").all(id) as { role: "user" | "assistant"; content: string }[];
+    const rows = this.db.prepare("SELECT role,content,update_id FROM messages WHERE conversation_id=? ORDER BY seq DESC LIMIT 13").all(id) as { role: "user" | "assistant"; content: string; update_id: string | null }[];
     let remaining = 24_000;
     const result: ChatInput["history"] = [];
     let truncated = rows.length > 12;
     for (const row of rows.slice(0, 12)) {
       if (remaining <= 0) break;
-      const content = row.content.slice(0, Math.min(6_000, remaining));
-      if (content.length < row.content.length) truncated = true;
+      let full = row.content;
+      if (row.update_id) {
+        const update = this.db.prepare("SELECT proposal FROM wiki_updates WHERE id=?").get(row.update_id) as { proposal: string } | undefined;
+        if (update) {
+          const proposal = JSON.parse(update.proposal) as { changes: { action: string; path: string; content?: string }[]; status: string };
+          const changes = proposal.changes.map(({ action, path, content }) => ({ action, path, ...(content === undefined ? {} : { content }) }));
+          full += `\n\n[제안한 문서 변경안. PR 상태: ${proposal.status}. 병합 여부는 별도 확인]\n${JSON.stringify(changes)}`;
+        }
+      }
+      const content = full.slice(0, Math.min(6_000, remaining));
+      if (content.length < full.length) truncated = true;
       result.push({ role: row.role, content }); remaining -= content.length;
     }
     if (result.length < Math.min(rows.length, 12)) truncated = true;
@@ -150,10 +160,12 @@ export class ChatHistoryStore {
       if (!row || row.pending_request_id !== requestId) throw conflict();
       const at = this.now(), seq = row.message_count;
       const user = { id: randomUUID(), seq: seq + 1, role: "user" as const, content: message, created_at: at, author: identity };
+      const update = result.wiki_update as { id: string } | undefined;
       const assistant = { id: randomUUID(), seq: seq + 2, role: "assistant" as const, content: answer, created_at: at, sources,
+        ...(update ? { wiki_update: update } : {}),
         ...(measurementId ? { measurement_id: measurementId } : {}) };
-      this.db.prepare("INSERT INTO messages VALUES(?,?,?,?,?,?,?,?,?)").run(user.id,id,user.seq,user.role,user.content,at,identity,null,null);
-      this.db.prepare("INSERT INTO messages VALUES(?,?,?,?,?,?,?,?,?)").run(assistant.id,id,assistant.seq,assistant.role,assistant.content,at,null,JSON.stringify(sources),measurementId);
+      this.db.prepare("INSERT INTO messages(id,conversation_id,seq,role,content,created_at,author,sources,measurement_id,update_id) VALUES(?,?,?,?,?,?,?,?,?,?)").run(user.id,id,user.seq,user.role,user.content,at,identity,null,null,null);
+      this.db.prepare("INSERT INTO messages(id,conversation_id,seq,role,content,created_at,author,sources,measurement_id,update_id) VALUES(?,?,?,?,?,?,?,?,?,?)").run(assistant.id,id,assistant.seq,assistant.role,assistant.content,at,null,JSON.stringify(sources),measurementId,update?.id ?? null);
       this.db.prepare("UPDATE conversations SET title=CASE WHEN message_count=0 THEN ? ELSE title END,updated_at=?,version=version+1,message_count=message_count+2,pending_request_id=NULL,pending_until=NULL WHERE id=?")
         .run(message.slice(0, 80), at, id);
       const response = { ...result, conversation: this.conversation(id), messages: [user, { ...assistant, can_feedback: Boolean(measurementId) }] };
