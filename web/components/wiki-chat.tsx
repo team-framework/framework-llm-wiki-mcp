@@ -362,9 +362,13 @@ function ChatSurface(props: ChatSurfaceProps) {
   const pendingScrollRef = useRef<{ height: number; top: number } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(props.variant === 'full');
   const isFull = props.variant === 'full';
-  const showHistory = isFull || historyOpen;
+  const showHistory = historyOpen;
   const isMobileFull = props.variant === 'mobile-full';
   const pathLabel = props.pathname.startsWith('/docs') ? '문서와 함께' : '위키와 함께';
+
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 760px)').matches) setHistoryOpen(false);
+  }, []);
 
   useEffect(() => {
     if (!isFull && document.activeElement?.getAttribute('aria-label') === '위키 Agent 열기') textareaRef.current?.focus();
@@ -418,7 +422,7 @@ function ChatSurface(props: ChatSurfaceProps) {
           <p className="wiki-chat-subtitle">문서 근거와 팀 대화 기록을 함께 확인합니다</p>
         </div>
         <div className="wiki-chat-toolbar" aria-label="대화 도구">
-          {!isFull && (
+          {(
             <button
               className="wiki-icon-button"
               type="button"
@@ -458,7 +462,7 @@ function ChatSurface(props: ChatSurfaceProps) {
         </div>
       </header>
 
-      <div className="wiki-chat-body">
+      <div className={'wiki-chat-body' + (showHistory ? ' wiki-chat-body-with-history' : '')}>
         {showHistory && (
           <HistoryPanel
             conversations={props.conversations}
@@ -467,7 +471,10 @@ function ChatSurface(props: ChatSurfaceProps) {
             conversationCursor={props.conversationCursor}
             historyError={props.historyError}
             activeConversation={props.activeConversation}
-            onSelectConversation={props.onSelectConversation}
+            onSelectConversation={(id) => {
+              props.onSelectConversation(id);
+              if (props.variant === 'popup' || window.matchMedia('(max-width: 760px)').matches) setHistoryOpen(false);
+            }}
             onLoadConversations={props.onLoadConversations}
             sending={props.sending}
           />
@@ -787,7 +794,7 @@ export function WikiChatApp({ children }: { children: React.ReactNode }) {
     if (mode === 'closed') return;
     const onResize = () => {
       const small = window.matchMedia('(max-width: 760px)').matches;
-      if (small && mode === 'split') setMode('mobile-full');
+      if (small && (mode === 'split' || mode === 'popup')) setMode('mobile-full');
       if (!small && mode === 'mobile-full') setMode('popup');
     };
     window.addEventListener('resize', onResize);

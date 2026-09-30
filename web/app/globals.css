@@ -381,6 +381,7 @@ select {
 }
 
 .wiki-chat-panel {
+  container-type: inline-size;
   position: relative;
   z-index: 1;
   display: flex;
@@ -721,7 +722,31 @@ select {
 }
 
 .wiki-chat-panel-popup .wiki-chat-header {
-  padding-left: 7.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.wiki-chat-heading {
+  min-width: 0;
+}
+
+.wiki-chat-panel-popup .wiki-chat-heading {
+  flex: 1 0 100%;
+  padding-left: 6rem;
+  min-height: 1.9rem;
+  display: flex;
+  align-items: center;
+}
+
+.wiki-chat-panel-popup .wiki-chat-subtitle {
+  display: none;
+}
+
+.wiki-chat-panel-popup .wiki-chat-toolbar {
+  flex: 1 0 100%;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .wiki-chat-title {
@@ -877,6 +902,7 @@ select {
 }
 
 .wiki-chat-composer textarea {
+  min-width: 0;
   min-height: 2.65rem;
   max-height: 9rem;
   flex: 1;
@@ -1582,6 +1608,32 @@ select {
   border-left: 3px solid var(--wiki-accent);
   border-radius: 0 0.7rem 0.7rem 0;
   background: color-mix(in srgb, var(--wiki-accent) 7%, var(--color-fd-background));
+}
+
+@container (max-width: 520px) {
+  .wiki-chat-body-with-history .wiki-chat-conversation {
+    display: none;
+  }
+
+  .wiki-chat-body-with-history .wiki-chat-history-panel {
+    width: 100%;
+    flex: 1;
+    border-inline-end: 0;
+  }
+
+  .wiki-chat-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .wiki-chat-heading {
+    flex: 1 0 100%;
+  }
+
+  .wiki-chat-toolbar {
+    margin-inline-start: auto;
+  }
 }
 
 @media (max-width: 640px) {
