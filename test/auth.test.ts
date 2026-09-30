@@ -64,17 +64,54 @@ async function exchange(auth: GitHubAuth, body: Record<string, string>) {
   return { status, payload };
 }
 
-test("refresh rotations keep the first login deadline and clip the last access token to 24 hours", async () => {
+test("access tokens last seven days and refresh tokens last fourteen days", async () => {
+  const initial = Date.parse("2026-09-30T00:00:00Z");
+  let now = initial;
+  const auth = createAuth(() => now);
+  const issued = (auth as any).issueTokens("member", auth.resourceUrl);
+  assert.equal(issued.expires_in, 604_800);
+  assert.equal(tokenBody(issued.access_token).expiresAt, initial + 7 * day);
+  assert.equal(tokenBody(issued.refresh_token).expiresAt, initial + 14 * day);
+  const request = { headers: { authorization: `Bearer ${issued.access_token}` } } as never;
+  now = initial + 7 * day - 1;
+  assert.equal(await auth.authorize(request), true);
+  now++;
+  assert.equal(await auth.authorize(request), false);
+  const refreshed = await exchange(auth, { grant_type: "refresh_token", refresh_token: issued.refresh_token });
+  assert.equal(refreshed.status, 200);
+  assert.equal(refreshed.payload.expires_in, 604_800);
+  assert.equal(tokenBody(refreshed.payload.access_token).expiresAt, initial + 14 * day);
+  assert.equal(tokenBody(refreshed.payload.refresh_token).expiresAt, initial + 14 * day);
+});
+
+test("previously issued refresh tokens retain their shorter login deadline", async () => {
+  const now = Date.parse("2026-09-30T00:00:00Z");
+  const auth = createAuth(() => now);
+  const deadline = now + day;
+  const existing = (auth as any).sign({
+    login: "member", audience: auth.resourceUrl,
+    expiresAt: deadline, reauthenticateAt: deadline, type: "refresh_token",
+  });
+  const result = await exchange(auth, { grant_type: "refresh_token", refresh_token: existing });
+  assert.equal(result.status, 200);
+  assert.equal(result.payload.expires_in, day / 1000);
+  assert.equal(tokenBody(result.payload.access_token).expiresAt, deadline);
+  assert.equal(tokenBody(result.payload.refresh_token).reauthenticateAt, deadline);
+});
+
+test("refresh rotations keep the first login deadline and clip the last access token to 14 days", async () => {
   const initial = Date.parse("2026-09-29T00:00:00Z"); let now = initial;
   const auth = createAuth(() => now); const issued = (auth as any).issueTokens("member", auth.resourceUrl);
-  const first = tokenBody(issued.refresh_token); assert.equal(first.reauthenticateAt, initial + day); assert.equal(first.expiresAt, initial + day); assert.equal(issued.expires_in, 3600);
-  now += 6 * hour;
+  const first = tokenBody(issued.refresh_token); assert.equal(first.reauthenticateAt, initial + 14 * day); assert.equal(first.expiresAt, initial + 14 * day); assert.equal(issued.expires_in, 7 * day / 1000);
+  now += 6 * day;
   const rotated = await exchange(auth, { grant_type: "refresh_token", refresh_token: issued.refresh_token });
   assert.equal(rotated.status, 200); assert.equal(tokenBody(rotated.payload.refresh_token).reauthenticateAt, first.reauthenticateAt);
-  now = initial + day - hour / 2;
+  assert.equal(rotated.payload.expires_in, 7 * day / 1000);
+  assert.equal(tokenBody(rotated.payload.access_token).expiresAt, initial + 13 * day);
+  now = initial + 14 * day - hour / 2;
   const last = await exchange(auth, { grant_type: "refresh_token", refresh_token: rotated.payload.refresh_token });
-  assert.equal(last.status, 200); assert.equal(last.payload.expires_in, 1800); assert.equal(tokenBody(last.payload.access_token).expiresAt, initial + day);
-  now = initial + day;
+  assert.equal(last.status, 200); assert.equal(last.payload.expires_in, 1800); assert.equal(tokenBody(last.payload.access_token).expiresAt, initial + 14 * day);
+  now = initial + 14 * day;
   assert.equal(await auth.authorize({ headers: { authorization: `Bearer ${last.payload.access_token}` } } as never), false);
   const expired = await exchange(auth, { grant_type: "refresh_token", refresh_token: last.payload.refresh_token });
   assert.equal(expired.status, 400); assert.equal(expired.payload.error, "invalid_grant"); assert.equal(expired.payload.access_token, undefined);
@@ -82,8 +119,8 @@ test("refresh rotations keep the first login deadline and clip the last access t
 
 test("legacy, overlong and wrong audience refresh tokens require a new GitHub login", async () => {
   const now = Date.parse("2026-09-29T00:00:00Z"); const auth = createAuth(() => now);
-  const base = { login: "member", audience: auth.resourceUrl, expiresAt: now + day, type: "refresh_token" };
-  for (const value of [base, { ...base, expiresAt: now + 30 * day, reauthenticateAt: now + 30 * day }, { ...base, reauthenticateAt: now + day, audience: "https://other.example/mcp" }]) {
+  const base = { login: "member", audience: auth.resourceUrl, expiresAt: now + 14 * day, type: "refresh_token" };
+  for (const value of [base, { ...base, expiresAt: now + 30 * day, reauthenticateAt: now + 30 * day }, { ...base, reauthenticateAt: now + 14 * day, audience: "https://other.example/mcp" }]) {
     const result = await exchange(auth, { grant_type: "refresh_token", refresh_token: (auth as any).sign(value) });
     assert.equal(result.status, 400); assert.equal(result.payload.error, "invalid_grant"); assert.match(result.payload.error_description, /fresh GitHub login/);
   }
@@ -104,10 +141,10 @@ test("OAuth login fixes the deadline at GitHub verification and a later login re
     let status = 200; let redirect = "";
     const reply: any = { header() { return this; }, code(value: number) { status = value; return this; }, type() { return this; }, send() { return this; }, redirect(value: string) { redirect = value; return this; } };
     await auth.finishLogin(request(), reply); const code = new URL(redirect).searchParams.get("code")!;
-    assert.equal(tokenBody(code).reauthenticateAt, initial + day); now += 2 * 60_000;
+    assert.equal(tokenBody(code).reauthenticateAt, initial + 14 * day); now += 2 * 60_000;
     const result = await exchange(auth, { grant_type: "authorization_code", code, client_id: authorization.clientId, redirect_uri: authorization.redirectUri, code_verifier: verifier });
-    assert.equal(result.status, 200); assert.equal(tokenBody(result.payload.refresh_token).reauthenticateAt, initial + day);
-    active = false; now = initial + day; await auth.finishLogin(request(), reply); assert.equal(status, 403); assert.equal(membershipChecks, 2);
+    assert.equal(result.status, 200); assert.equal(tokenBody(result.payload.refresh_token).reauthenticateAt, initial + 14 * day);
+    active = false; now = initial + 14 * day; await auth.finishLogin(request(), reply); assert.equal(status, 403); assert.equal(membershipChecks, 2);
   } finally { globalThis.fetch = original; }
 });
 

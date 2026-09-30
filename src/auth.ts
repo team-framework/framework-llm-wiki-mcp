@@ -5,6 +5,8 @@ const cookieName = "framework_wiki_session";
 const stateCookieName = "framework_wiki_oauth_state";
 const oneHour = 60 * 60 * 1000;
 const oneDay = 24 * oneHour;
+const accessTokenLifetime = 7 * oneDay;
+const refreshTokenLifetime = 14 * oneDay;
 const tenMinutes = 10 * 60 * 1000;
 
 type Session = { login: string; expiresAt: number; type?: "browser_session" };
@@ -179,7 +181,7 @@ export class GitHubAuth {
     if (state.flow.kind === "oauth") {
       const authorization = this.verify<AuthorizationRequest>(state.flow.authorization);
       if (!authorization || authorization.expiresAt < this.now()) return reply.code(400).type("text/plain").send("OAuth authorization expired.");
-      const code = this.sign<AuthorizationCode>({ ...authorization, login, reauthenticateAt: this.now() + oneDay, type: "authorization_code" });
+      const code = this.sign<AuthorizationCode>({ ...authorization, login, reauthenticateAt: this.now() + refreshTokenLifetime, type: "authorization_code" });
       const redirect = new URL(authorization.redirectUri);
       redirect.searchParams.set("code", code);
       if (authorization.state) redirect.searchParams.set("state", authorization.state);
@@ -203,12 +205,12 @@ export class GitHubAuth {
 
   private validReauthenticationDeadline(value: unknown): value is number {
     const now = this.now();
-    return typeof value === "number" && Number.isFinite(value) && value > now && value <= now + oneDay;
+    return typeof value === "number" && Number.isFinite(value) && value > now && value <= now + refreshTokenLifetime;
   }
 
-  private issueTokens(login: string, audience: string, scope?: string, reauthenticateAt = this.now() + oneDay) {
+  private issueTokens(login: string, audience: string, scope?: string, reauthenticateAt = this.now() + refreshTokenLifetime) {
     const now = this.now();
-    const accessExpiresAt = Math.min(now + oneHour, reauthenticateAt);
+    const accessExpiresAt = Math.min(now + accessTokenLifetime, reauthenticateAt);
     return {
       access_token: this.sign<AccessToken>({ login, audience, scope, expiresAt: accessExpiresAt, type: "access_token" }),
       token_type: "Bearer",
