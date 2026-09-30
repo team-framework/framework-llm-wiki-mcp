@@ -5,7 +5,7 @@ import { documentHref, friendlyDocumentTitle } from '@/lib/links';
 export function createPageTree(notes: WikiTreeEntry[]): PageTree.Root {
   const root: PageTree.Root = {
     type: 'root',
-    name: 'Framework 위키',
+    name: 'Framework Wiki',
     children: [],
   };
   const folders = new Map<string, PageTree.Folder>();

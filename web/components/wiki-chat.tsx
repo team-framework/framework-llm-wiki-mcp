@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ExternalLink, History, LoaderCircle, Maximize2, MessageSquareText, Minimize2, Plus, Send, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { ExternalLink, History, LoaderCircle, Maximize2, MessageSquareText, Minimize2, Plus, Send, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import { friendlyDocumentTitle, headingId, documentHref } from '@/lib/links';
 import { WikiMarkdown } from '@/components/wiki-markdown';
 import { recordWebEvent } from '@/lib/measurements';
@@ -522,9 +522,8 @@ function ChatSurface(props: ChatSurfaceProps) {
               <p className="wiki-chat-loading" role="status"><LoaderCircle size={15} className="animate-spin" aria-hidden="true" /> 대화를 불러오고 있습니다…</p>
             ) : props.messages.length === 0 && !props.pendingMessage ? (
               <div className="wiki-chat-empty">
-                <Sparkles size={22} aria-hidden="true" />
-                <strong>팀 위키를 함께 살펴볼게요.</strong>
-                <span>질문을 시작하거나 왼쪽 목록에서 팀 대화를 이어가세요.</span>
+                <strong>무엇을 찾고 있나요?</strong>
+                <span>위키에 질문하거나 팀 대화를 이어가세요.</span>
               </div>
             ) : (
               <>
@@ -549,7 +548,7 @@ function ChatSurface(props: ChatSurfaceProps) {
             <textarea
               ref={textareaRef}
               aria-label="위키 Agent에게 질문"
-              placeholder="문서 신규·수정, 디자인·기획·일정을 물어보세요"
+              placeholder="위키에 질문하기"
               value={props.draft}
               onChange={(event) => props.onDraftChange(event.target.value)}
               onKeyDown={onComposerKeyDown}

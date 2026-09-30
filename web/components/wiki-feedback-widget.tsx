@@ -157,7 +157,7 @@ export function WikiFeedbackWidget() {
       <div className="wiki-feedback-panel">
         <header className="wiki-feedback-header">
           <div>
-            <p className="wiki-feedback-eyebrow">Framework 위키</p>
+            <p className="wiki-feedback-eyebrow">Framework Wiki</p>
             <h2 id={titleId}>위키 의견 보내기</h2>
             <p>팀이 위키 개선을 위해 검토합니다.</p>
           </div>
