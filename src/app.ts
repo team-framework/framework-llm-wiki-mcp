@@ -9,6 +9,7 @@ import { GitHubAuth } from "./auth.js";
 import { createMcpServer } from "./mcp.js";
 import { WikiVectorIndex } from "./vector.js";
 import { WikiService } from "./wiki.js";
+import { WikiUpdates, UpdateError, isUpdateCommand } from "./wiki-update.js";
 import { MeasurementStore, WikiMeasurements, WEB_INTERACTION_FEATURES, type MeasurementActor } from "./measurements.js";
 import type { FastifyRequest, FastifyReply } from "fastify";
 
@@ -32,6 +33,7 @@ if (process.env.WIKI_MEASUREMENT_PATH && process.env.WIKI_MEASUREMENT_SECRET) {
 }
 const measurements = measurementStore ? new WikiMeasurements(measurementStore, wiki) : null;
 const chatHistory = process.env.WIKI_CHAT_PATH ? new ChatHistoryStore(process.env.WIKI_CHAT_PATH) : null;
+const updates = chatHistory ? new WikiUpdates(chatHistory.db, wiki) : null;
 const actor = (request: FastifyRequest, client: MeasurementActor["client"]): MeasurementActor => auth.authorizeServiceRead(request) || auth.authorizeServiceMcpRead(request)
   ? { identity: "wiki-discord-service", kind: "service", client: "discord" }
   : { identity: auth.identity(request)!, kind: "person", client };
@@ -50,6 +52,7 @@ const chat = new WikiChat((query) => wiki.getContext(query, { maxChars: 12_000, 
 await app.register(formbody);
 app.setErrorHandler((error, _request, reply) => {
   const failure = error as Error & { code?: string; statusCode?: number };
+  if (error instanceof UpdateError) return reply.code(error.status).send({ error: error.code, message: error.message });
   if (failure.code === "ENOENT") return reply.code(404).send({ error: "note_not_found", message: "문서를 찾을 수 없습니다." });
   if (error instanceof z.ZodError || /Invalid wiki|Invalid.*path|Invalid section cursor|outside.*root/i.test(failure.message)) {
     return reply.code(400).send({ error: "invalid_request", message: "요청한 경로와 입력을 확인해 주세요." });
@@ -160,7 +163,9 @@ app.get("/api/chat/conversations/:id", async (request, reply) => {
     return { ...result, messages: result.messages.map((message) => {
       if (message.role !== "assistant") return message;
       const can_feedback = Boolean(message.measurement_id && measurementStore?.hasEvent(identity, message.measurement_id, "web.chat"));
-      return { ...message, measurement_id: can_feedback ? message.measurement_id : null, can_feedback };
+      const update = message.update_id && updates ? updates.get(message.update_id) : null;
+      return { ...message, measurement_id: can_feedback ? message.measurement_id : null, can_feedback,
+        ...(update ? { wiki_update: { ...update, can_publish: update.identity === identity } } : {}) };
     }) };
   } catch (error) { return historyFailure(error, reply); }
 });
@@ -179,6 +184,14 @@ app.post("/api/chat", async (request, reply) => {
     catch (error) { return historyFailure(error, reply); }
     if (reserved.completed) return reserved.completed;
     try {
+      if (isUpdateCommand(input.message)) {
+        const proposal = await updates!.propose({ message: input.message, reasoning: input.reasoning, history: reserved.history }, identity, input.conversation_id, input.request_id);
+        const response = "clarification" in proposal
+          ? { answer: proposal.clarification, sources: [] }
+          : { answer: proposal.summary, sources: [], wiki_update: { ...proposal, can_publish: true } };
+        return chatHistory.complete(input.conversation_id, input.request_id, identity, input.message, response.answer, [], null,
+          { ...response, history_truncated: reserved.history_truncated });
+      }
       const result = await measure(request, "web", "web.chat", () => chat.answer({ message: input.message, reasoning: input.reasoning, history: reserved.history }, identity));
       const response = { ...result.value, measurement_id: result.id, history_truncated: reserved.history_truncated,
         ...(!measurements ? { measurement_status: "disabled" } : {}) };
@@ -186,11 +199,13 @@ app.post("/api/chat", async (request, reply) => {
     } catch (error) {
       chatHistory.release(input.conversation_id, input.request_id);
       if (error instanceof ChatError) return reply.code(error.status).send({ error: error.code, message: error.message });
+      if (error instanceof UpdateError) throw error;
       return historyFailure(error, reply);
     }
   }
   const parsed = chatInput.safeParse(request.body);
   if (!parsed.success) return reply.code(400).send({ error: "invalid_chat_input", message: "질문 또는 대화 기록의 길이를 확인해 주세요." });
+  if (isUpdateCommand(parsed.data.message)) return reply.code(400).send({ error: "saved_conversation_required", message: "팀 대화에서 /업데이트를 보내 주세요." });
   reply.header("Cache-Control", "private, no-store");
   try { const result = await measure(request, "web", "web.chat", () => chat.answer(parsed.data, auth.identity(request)!));
     return { ...result.value, measurement_id: result.id, ...(!measurements ? { measurement_status: "disabled" } : {}) }; }
@@ -198,6 +213,13 @@ app.post("/api/chat", async (request, reply) => {
     if (error instanceof ChatError) return reply.code(error.status).send({ error: error.code, message: error.message });
     throw error;
   }
+});
+app.post("/api/chat/updates/:id/publish", async (request, reply) => {
+  if (!sameOrigin(request, reply)) return;
+  if (!updates) return reply.code(503).send({ error: "update_unavailable", message: "문서 PR 연결을 준비하고 있습니다." });
+  const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+  z.object({}).strict().parse(request.body ?? {});
+  return { wiki_update: await updates.publish(id, auth.identity(request)!) };
 });
 app.post("/api/events", async (request, reply) => {
   if (!sameOrigin(request, reply)) return;

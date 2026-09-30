@@ -1,0 +1,11 @@
+# Enable via COMPOSE_FILE=compose.yaml:compose.wiki-updates.yaml in the server .env.
+services:
+  wiki-mcp:
+    environment:
+      WIKI_GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/framework-bot.pem
+    secrets:
+      - source: framework-bot-key
+        target: framework-bot.pem
+secrets:
+  framework-bot-key:
+    file: ${WIKI_GITHUB_APP_PRIVATE_KEY_HOST_PATH:?Set the Framework Bot private key path}

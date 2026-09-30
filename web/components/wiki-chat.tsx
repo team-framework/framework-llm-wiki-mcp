@@ -7,6 +7,7 @@ import { ExternalLink, History, LoaderCircle, Maximize2, MessageSquareText, Mini
 import { friendlyDocumentTitle, headingId, documentHref } from '@/lib/links';
 import { WikiMarkdown } from '@/components/wiki-markdown';
 import { recordWebEvent } from '@/lib/measurements';
+import { WikiUpdateCard, type WikiUpdate } from '@/components/wiki-update-card';
 
 type Reasoning = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 type Citation = { path: string; title: string; section?: string; url?: string };
@@ -26,6 +27,7 @@ type ChatMessage = {
   feedbackSaved?: boolean;
   feedbackSaving?: boolean;
   feedbackError?: boolean;
+  wikiUpdate?: WikiUpdate;
 };
 type Conversation = {
   id: string;
@@ -110,6 +112,7 @@ function parseMessage(value: unknown): ChatMessage | null {
     ...(sources.length ? { sources } : {}),
     ...(typeof item.measurement_id === 'string' ? { measurementId: item.measurement_id } : {}),
     ...(item.can_feedback === true ? { canFeedback: true } : {}),
+    ...(objectValue(item.wiki_update) ? { wikiUpdate: item.wiki_update as WikiUpdate } : {}),
   };
 }
 
@@ -272,9 +275,10 @@ function ChatMessageView({ message, conversationId, onFeedback }: {
   const reasonId = useId();
 
   return (
-    <article className={'wiki-chat-message wiki-chat-message-' + message.role} data-message-id={message.id}>
+    <article className={'wiki-chat-message wiki-chat-message-' + message.role + (message.wikiUpdate ? ' wiki-chat-message-with-update' : '')} data-message-id={message.id}>
       {message.author && message.role === 'user' && <span className="wiki-chat-message-author">{message.author}</span>}
       {message.role === 'assistant' ? <WikiMarkdown markdown={message.content} /> : message.content}
+      {message.wikiUpdate && <WikiUpdateCard proposal={message.wikiUpdate} />}
       {message.sources && message.sources.length > 0 && (
         <div className="wiki-chat-citations" aria-label="참고 문서">
           {message.sources.map((source, sourceIndex) => {
@@ -511,7 +515,7 @@ function ChatSurface(props: ChatSurfaceProps) {
             ) : props.messages.length === 0 && !props.pendingMessage ? (
               <div className="wiki-chat-empty">
                 <strong>무엇을 찾고 있나요?</strong>
-                <span>위키에 질문하거나 팀 대화를 이어가세요.</span>
+                <span>위키에 질문하거나 /업데이트로 문서 변경을 제안하세요.</span>
               </div>
             ) : (
               <>
@@ -524,7 +528,7 @@ function ChatSurface(props: ChatSurfaceProps) {
                       {props.pendingMessage}
                     </article>
                     <div className="wiki-chat-message wiki-chat-message-assistant wiki-chat-pending-answer" role="status">
-                      <LoaderCircle size={15} className="animate-spin" aria-hidden="true" /> 답변을 준비하고 있습니다…
+                      <LoaderCircle size={15} className="animate-spin" aria-hidden="true" /> {/^\/업데이트(?:\s|$)/u.test(props.pendingMessage) ? '문서 변경안을 준비하고 있습니다…' : '답변을 준비하고 있습니다…'}
                     </div>
                   </>
                 )}
@@ -532,11 +536,14 @@ function ChatSurface(props: ChatSurfaceProps) {
             )}
           </div>
 
+          <button type="button" className="wiki-update-command" disabled={props.sending || props.messagesLoading} onClick={() => { props.onDraftChange('/업데이트 '); textareaRef.current?.focus(); }}>
+            /업데이트 <span>문서 생성·수정·삭제</span>
+          </button>
           <form className="wiki-chat-composer" ref={props.formRef} onSubmit={props.onSubmit}>
             <textarea
               ref={textareaRef}
               aria-label="위키 Agent에게 질문"
-              placeholder="위키에 질문하기"
+              placeholder="질문하거나 /업데이트로 문서 바꾸기"
               value={props.draft}
               onChange={(event) => props.onDraftChange(event.target.value)}
               onKeyDown={onComposerKeyDown}
@@ -911,6 +918,14 @@ export function WikiChatApp({ children }: { children: React.ReactNode }) {
         return;
       }
       if (response.status === 409) {
+        const conflict = objectValue(await response.json().catch(() => null));
+        if (conflict?.error !== 'conversation_conflict') {
+          if (isCurrentView()) {
+            setNotice({ kind: 'error', text: typeof conflict?.message === 'string' ? conflict.message : '변경안의 대상이 바뀌었습니다. 내용을 확인하고 다시 보내 주세요.' });
+            setCanRetrySend(true);
+          }
+          return;
+        }
         if (requestRef.current?.requestId === request.requestId) requestRef.current = null;
         if (isCurrentView()) setCanRetrySend(false);
         const latest = await loadConversationPage(target.id).catch(() => null);
@@ -926,7 +941,13 @@ export function WikiChatApp({ children }: { children: React.ReactNode }) {
         if (isCurrentView()) setNotice({ kind: 'info', text: '팀 대화가 갱신되어 최신 기록을 불러왔습니다. 내용을 확인한 뒤 질문을 다시 보내 주세요.' });
         return;
       }
-      if (!response.ok) throw new Error('chat request failed');
+      if (!response.ok) {
+        const failure = objectValue(await response.json().catch(() => null));
+        if (isCurrentView() && typeof failure?.message === 'string') {
+          setNotice({ kind: 'error', text: failure.message }); setCanRetrySend(true); return;
+        }
+        throw new Error('chat request failed');
+      }
       const value = objectValue(await response.json());
       if (!value || typeof value.answer !== 'string') throw new Error('chat response was invalid');
       const returnedConversation = parseConversation(value.conversation);
@@ -944,6 +965,7 @@ export function WikiChatApp({ children }: { children: React.ReactNode }) {
         seq: userMessage.seq + 1,
         role: 'assistant' as const,
         content: value.answer,
+        ...(objectValue(value.wiki_update) ? { wikiUpdate: value.wiki_update as WikiUpdate } : {}),
         ...(sources.length ? { sources } : {}),
         ...(measurementId ? { measurementId, canFeedback: true } : {}),
       };

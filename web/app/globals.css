@@ -1963,3 +1963,30 @@ select {
     transition: none !important;
   }
 }
+
+.wiki-update-command { display: flex; align-items: center; gap: .65rem; width: fit-content; margin: 0 0 .5rem; padding: .35rem .55rem; border-radius: var(--wiki-radius); color: var(--color-fd-foreground); font-size: .78rem; cursor: pointer; }
+.wiki-chat-message-with-update { width: min(100%, 38rem); }
+.wiki-update-command span { color: var(--wiki-tone); font-size: .72rem; }
+.wiki-update-command:hover { background: var(--wiki-panel-muted); }
+.wiki-update-command:disabled { opacity: .5; cursor: default; }
+.wiki-update-card { margin-top: .9rem; border: 1px solid var(--color-fd-border); border-radius: var(--wiki-radius); overflow: hidden; font-size: .82rem; }
+.wiki-update-heading { display: flex; align-items: center; gap: .45rem; padding: .8rem; }
+.wiki-update-heading > span { margin-left: auto; color: var(--wiki-tone); font-size: .7rem; }
+.wiki-update-file { border-top: 1px solid var(--color-fd-border); }
+.wiki-update-file summary { display: flex; align-items: baseline; gap: .5rem; padding: .7rem .8rem; cursor: pointer; overflow-wrap: anywhere; }
+.wiki-update-file summary::before { content: '+'; color: var(--wiki-tone); }
+.wiki-update-file[open] summary::before { content: '−'; }
+.wiki-update-action { flex-shrink: 0; font-size: .72rem; color: var(--wiki-tone); }
+.wiki-update-action-create { color: var(--wiki-success); }
+.wiki-update-action-delete, .wiki-update-delete-note, .wiki-update-error { color: var(--wiki-error); }
+.wiki-update-diff { display: grid; gap: .7rem; padding: 0 .8rem .8rem; }
+.wiki-update-diff-label { display: block; margin-bottom: .3rem; color: var(--wiki-tone); font-size: .72rem; }
+.wiki-update-diff pre { max-height: 22rem; margin: 0; padding: .6rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--color-fd-border); border-radius: var(--wiki-radius); font-size: .75rem; line-height: 1.65; }
+.wiki-update-before { background: color-mix(in srgb, var(--wiki-error) 5%, var(--wiki-panel)); }
+.wiki-update-after { background: color-mix(in srgb, var(--wiki-success) 5%, var(--wiki-panel)); }
+.wiki-update-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; padding: .8rem; border-top: 1px solid var(--color-fd-border); }
+.wiki-update-footer > span { color: var(--wiki-tone); font-size: .72rem; }
+.wiki-update-footer button, .wiki-update-footer a { display: inline-flex; align-items: center; gap: .35rem; padding: .4rem .65rem; border-radius: var(--wiki-radius); background: var(--wiki-accent); color: var(--color-fd-background); font-size: .75rem; cursor: pointer; }
+.wiki-update-footer button:disabled { opacity: .5; cursor: default; }
+.wiki-update-error { padding: 0 .8rem .8rem; font-size: .75rem; }
+.wiki-update-command:focus-visible, .wiki-update-file summary:focus-visible, .wiki-update-footer button:focus-visible, .wiki-update-footer a:focus-visible { outline: 2px solid var(--wiki-accent); outline-offset: 3px; }
