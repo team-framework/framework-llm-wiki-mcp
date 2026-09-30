@@ -1,4 +1,11 @@
-export type WebEventFeature = 'web.document_view' | 'web.search_open' | 'web.citation_open';
+export type WebEventFeature =
+  | 'web.document_view'
+  | 'web.search_open'
+  | 'web.citation_open'
+  | 'web.chat_popup_open'
+  | 'web.chat_split_open'
+  | 'web.chat_page_open'
+  | 'web.chat_history_open';
 
 export function recordWebEvent(input: {
   feature: WebEventFeature;

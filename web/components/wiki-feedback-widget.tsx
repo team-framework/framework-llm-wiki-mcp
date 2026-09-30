@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { MessageSquarePlus, X } from 'lucide-react';
 
 const categories = [
@@ -14,6 +14,25 @@ const categories = [
 ] as const;
 
 type Category = typeof categories[number]['value'];
+const feedbackOpenEvent = 'wiki:feedback-open';
+
+export function WikiFeedbackButton({ compact = false }: { compact?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={'wiki-feedback-trigger' + (compact ? ' wiki-feedback-trigger-compact' : '')}
+      aria-haspopup="dialog"
+      aria-label={compact ? '의견 보내기' : undefined}
+      title="의견 보내기"
+      onClick={(event) => {
+        window.dispatchEvent(new CustomEvent(feedbackOpenEvent, { detail: { trigger: event.currentTarget } }));
+      }}
+    >
+      <MessageSquarePlus size={17} aria-hidden="true" />
+      <span>의견 보내기</span>
+    </button>
+  );
+}
 
 export function WikiFeedbackWidget() {
   const pathname = usePathname();
@@ -23,9 +42,22 @@ export function WikiFeedbackWidget() {
   const [includeDiagnostics, setIncludeDiagnostics] = useState(false);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const focusReturnRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const firstCategoryRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const detailsId = useId();
+
+  useEffect(() => {
+    function openFromHeader(event: Event) {
+      const trigger = (event as CustomEvent<{ trigger?: HTMLButtonElement }>).detail?.trigger;
+      if (trigger) focusReturnRef.current = trigger;
+      setNotice(null);
+      setOpen(true);
+    }
+    window.addEventListener(feedbackOpenEvent, openFromHeader);
+    return () => window.removeEventListener(feedbackOpenEvent, openFromHeader);
+  }, []);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -35,7 +67,7 @@ export function WikiFeedbackWidget() {
       requestAnimationFrame(() => firstCategoryRef.current?.focus());
     } else if (!open && dialog.open) {
       dialog.close();
-      requestAnimationFrame(() => triggerRef.current?.focus());
+      requestAnimationFrame(() => focusReturnRef.current?.focus());
     }
   }, [open]);
 
@@ -109,107 +141,90 @@ export function WikiFeedbackWidget() {
   }
 
   return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="wiki-feedback-trigger"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => {
-          setNotice(null);
-          setOpen(true);
-        }}
-      >
-        <MessageSquarePlus size={17} aria-hidden="true" />
-        <span>의견 보내기</span>
-      </button>
+    <dialog
+      ref={dialogRef}
+      className="wiki-feedback-dialog"
+      aria-labelledby={titleId}
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
+      onClose={() => setOpen(false)}
+      onClick={(event) => {
+        if (event.target === dialogRef.current) close();
+      }}
+    >
+      <div className="wiki-feedback-panel">
+        <header className="wiki-feedback-header">
+          <div>
+            <p className="wiki-feedback-eyebrow">Framework 위키</p>
+            <h2 id={titleId}>위키 의견 보내기</h2>
+            <p>팀이 위키 개선을 위해 검토합니다.</p>
+          </div>
+          <button className="wiki-icon-button" type="button" aria-label="의견 창 닫기" onClick={close} disabled={sending}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
 
-      <dialog
-        ref={dialogRef}
-        className="wiki-feedback-dialog"
-        aria-labelledby="wiki-feedback-title"
-        onCancel={(event) => {
-          event.preventDefault();
-          close();
-        }}
-        onClose={() => setOpen(false)}
-        onClick={(event) => {
-          if (event.target === dialogRef.current) close();
-        }}
-      >
-        <div className="wiki-feedback-panel">
-          <header className="wiki-feedback-header">
-            <div>
-              <p className="wiki-feedback-eyebrow">Framework 위키</p>
-              <h2 id="wiki-feedback-title">위키 의견 보내기</h2>
-              <p>팀이 위키 개선을 위해 검토합니다.</p>
+        <form onSubmit={submit}>
+          <fieldset className="wiki-feedback-category-group">
+            <legend>유형을 선택해 주세요 <span>최대 3개 · {selected.length}/3</span></legend>
+            <div className="wiki-feedback-categories">
+              {categories.map((category, index) => (
+                <button
+                  key={category.value}
+                  ref={index === 0 ? firstCategoryRef : undefined}
+                  className={'wiki-feedback-pill' + (selected.includes(category.value) ? ' selected' : '')}
+                  type="button"
+                  aria-pressed={selected.includes(category.value)}
+                  onClick={() => toggleCategory(category.value)}
+                  disabled={sending || (!selected.includes(category.value) && selected.length >= 3)}
+                >
+                  {category.label}
+                </button>
+              ))}
             </div>
-            <button className="wiki-icon-button" type="button" aria-label="의견 창 닫기" onClick={close} disabled={sending}>
-              <X size={18} aria-hidden="true" />
-            </button>
-          </header>
+          </fieldset>
 
-          <form onSubmit={submit}>
-            <fieldset className="wiki-feedback-category-group">
-              <legend>유형을 선택해 주세요 <span>최대 3개 · {selected.length}/3</span></legend>
-              <div className="wiki-feedback-categories">
-                {categories.map((category, index) => (
-                  <button
-                    key={category.value}
-                    ref={index === 0 ? firstCategoryRef : undefined}
-                    className={`wiki-feedback-pill${selected.includes(category.value) ? ' selected' : ''}`}
-                    type="button"
-                    aria-pressed={selected.includes(category.value)}
-                    onClick={() => toggleCategory(category.value)}
-                    disabled={sending || (!selected.includes(category.value) && selected.length >= 3)}
-                  >
-                    {category.label}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+          <label className="wiki-feedback-details-label" htmlFor={detailsId}>무엇을 개선하면 좋을까요?</label>
+          <textarea
+            id={detailsId}
+            value={details}
+            onChange={(event) => setDetails(event.target.value)}
+            placeholder="불편했던 점이나 도움이 된 내용을 적어 주세요."
+            maxLength={4000}
+            minLength={1}
+            required
+            rows={7}
+            disabled={sending}
+          />
+          <div className="wiki-feedback-character-count">{details.length.toLocaleString('ko-KR')} / 4,000자</div>
 
-            <label className="wiki-feedback-details-label" htmlFor="wiki-feedback-details">무엇을 개선하면 좋을까요?</label>
-            <textarea
-              id="wiki-feedback-details"
-              value={details}
-              onChange={(event) => setDetails(event.target.value)}
-              placeholder="불편했던 점이나 도움이 된 내용을 적어 주세요."
-              maxLength={4000}
-              minLength={1}
-              required
-              rows={7}
+          <label className="wiki-feedback-diagnostics">
+            <input
+              type="checkbox"
+              checked={includeDiagnostics}
+              onChange={(event) => setIncludeDiagnostics(event.target.checked)}
               disabled={sending}
             />
-            <div className="wiki-feedback-character-count">{details.length.toLocaleString('ko-KR')} / 4,000자</div>
+            <span>현재 페이지 경로와 화면 크기를 함께 보냅니다.</span>
+          </label>
 
-            <label className="wiki-feedback-diagnostics">
-              <input
-                type="checkbox"
-                checked={includeDiagnostics}
-                onChange={(event) => setIncludeDiagnostics(event.target.checked)}
-                disabled={sending}
-              />
-              <span>현재 페이지 경로와 화면 크기를 함께 보냅니다.</span>
-            </label>
+          {notice && (
+            <p className={'wiki-feedback-notice ' + notice.kind} role={notice.kind === 'error' ? 'alert' : 'status'}>
+              {notice.text}
+              {notice.kind === 'error' && notice.text.includes('로그인') && <> <a href="/auth/github/login">GitHub 로그인</a></>}
+            </p>
+          )}
 
-            {notice && (
-              <p className={`wiki-feedback-notice ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>
-                {notice.text}
-                {notice.kind === 'error' && notice.text.includes('로그인') && <> <a href="/auth/github/login">GitHub 로그인</a></>}
-              </p>
-            )}
-
-            <footer className="wiki-feedback-footer">
-              <button className="wiki-feedback-cancel" type="button" onClick={close} disabled={sending}>닫기</button>
-              <button className="wiki-feedback-submit" type="submit" disabled={sending}>
-                {sending ? '보내는 중…' : '의견 보내기'}
-              </button>
-            </footer>
-          </form>
-        </div>
-      </dialog>
-    </>
+          <footer className="wiki-feedback-footer">
+            <button className="wiki-feedback-cancel" type="button" onClick={close} disabled={sending}>닫기</button>
+            <button className="wiki-feedback-submit" type="submit" disabled={sending}>
+              {sending ? '보내는 중…' : '의견 보내기'}
+            </button>
+          </footer>
+        </form>
+      </div>
+    </dialog>
   );
 }
