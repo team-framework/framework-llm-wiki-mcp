@@ -7,7 +7,6 @@ import { ExternalLink, History, LoaderCircle, Maximize2, MessageSquareText, Mini
 import { friendlyDocumentTitle, headingId, documentHref } from '@/lib/links';
 import { WikiMarkdown } from '@/components/wiki-markdown';
 import { recordWebEvent } from '@/lib/measurements';
-import { useChatPopupSize } from './chat-popup-resize';
 
 type Reasoning = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 type Citation = { path: string; title: string; section?: string; url?: string };
@@ -356,7 +355,6 @@ function ChatMessageView({ message, conversationId, onFeedback }: {
 
 function ChatSurface(props: ChatSurfaceProps) {
   const titleId = useId();
-  const { sizeStyle, resizeHandle } = useChatPopupSize(props.variant === 'popup');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const pendingScrollRef = useRef<{ height: number; top: number } | null>(null);
@@ -409,12 +407,10 @@ function ChatSurface(props: ChatSurfaceProps) {
       className={classes}
       role={isFull ? 'main' : 'dialog'}
       aria-labelledby={titleId}
-      style={props.variant === 'popup' ? sizeStyle : undefined}
       onKeyDown={(event) => {
         if (!isFull && event.key === 'Escape' && !event.nativeEvent.isComposing && !event.defaultPrevented && !document.querySelector('dialog[open]')) props.onClose();
       }}
     >
-      {props.variant === 'popup' && resizeHandle}
       <header className="wiki-chat-header">
         <p className="wiki-chat-title" id={titleId}>Wiki Agent</p>
         <div className="wiki-chat-toolbar" aria-label="대화 도구">

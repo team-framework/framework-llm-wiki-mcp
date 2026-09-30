@@ -143,13 +143,14 @@ select {
 
 #nd-sidebar > div:last-child > div:has(> [data-theme-toggle]) {
   width: fit-content;
-  margin-inline-start: auto;
+  margin-inline-start: 0;
   border: 0;
   padding: 0;
   background: transparent;
 }
 
 #nd-sidebar [data-theme-toggle] {
+  margin-inline-start: 0;
   border: 1px solid var(--color-fd-border);
   border-radius: var(--wiki-radius);
 }
@@ -480,6 +481,15 @@ select {
   min-height: 100%;
 }
 
+#nd-docs-layout[data-sidebar-collapsed='true'] {
+  /* Fumadocs sets the grid inline; release the collapsed sidebar's reserved space. */
+  grid-template-columns: 0px 0px minmax(0, 1fr) var(--fd-toc-width) 0px !important;
+}
+
+#nd-docs-layout[data-sidebar-collapsed='true'] #nd-page {
+  max-width: none;
+}
+
 .wiki-app-shell-split {
   display: grid;
   grid-template-columns: minmax(0, calc(var(--wiki-docs-width, 50%) - 0.375rem)) 0.75rem minmax(0, 1fr);
@@ -493,14 +503,34 @@ select {
   max-width: 100%;
   min-width: 0;
   overflow-x: clip;
+}
+
+.wiki-app-shell-split > .wiki-app-content #nd-docs-layout {
   --fd-layout-width: 100%;
   --fd-sidebar-width: 224px;
   --fd-toc-width: 0px;
+  grid-template-columns: 0px var(--fd-sidebar-col) minmax(0, 1fr) 0px 0px !important;
 }
 
-.wiki-app-shell-split > .wiki-app-content .nd-toc,
-.wiki-app-shell-split > .wiki-app-content .nd-toc-placeholder {
+.wiki-app-shell-split > .wiki-app-content #nd-page {
+  max-width: none;
+}
+
+.wiki-app-shell-split > .wiki-app-content #nd-toc,
+.wiki-app-shell-split > .wiki-app-content #nd-toc-placeholder {
   display: none;
+}
+
+.wiki-app-shell-split #nd-docs-layout:has([data-toc-popover]) {
+  --fd-toc-popover-height: 40px;
+}
+
+.wiki-app-shell-split [data-toc-popover] {
+  display: block;
+}
+
+.wiki-app-shell-split #nd-docs-layout[data-sidebar-collapsed='true'] [data-toc-popover-trigger] {
+  padding-inline-start: 56px;
 }
 
 .wiki-chat-panel {
@@ -834,7 +864,7 @@ select {
 .wiki-chat-panel-popup .wiki-chat-header {
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 44px 0.75rem 0.75rem;
+  padding: 0.75rem;
 }
 
 .wiki-chat-panel-popup .wiki-chat-toolbar {
