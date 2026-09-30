@@ -60,3 +60,11 @@ DB 백업은 SQLite backup API 또는 `VACUUM INTO`로 일관된 snapshot을 만
 대화 목록과 메시지는 나누어 읽는다. 모델에는 최근 최대 12개 메시지, 합계 24,000자까지만 전달한다. 보관한 원문을 줄이지 않고 모델에 전달하는 문맥만 제한한다. 다른 팀원의 답변이 추가되면 버전을 확인해 충돌을 알린다. 같은 요청 ID의 완료된 질문을 재전송하면 저장된 결과를 반환한다.
 
 배포 검증은 로그인 없이 기록을 읽을 수 없는지, Discord의 읽기 전용 key로 접근할 수 없는지, 두 팀원 신원에서 같은 대화가 보이는지, 재시작 후 기록이 남는지를 확인한다. 합성 대화는 검증 환경에서 만들고 실제 팀원의 대화와 구분한다.
+
+## Discord Hermes의 Wiki MCP 인증
+
+2026-09-30에 Hermes의 위키 OAuth refresh가 400으로 실패했다. 비대화형 Gateway는 브라우저 재로그인을 진행할 수 없어 위키 MCP 도구를 등록하지 못했다. 서버 Bot은 기존 `WIKI_SERVICE_KEY`를 별도 비밀 환경 변수로 주입해 읽기 전용 MCP에 연결한다. 개인 에이전트와 웹 로그인은 기존 GitHub OAuth를 유지한다.
+
+서비스 키가 허용하는 MCP 범위는 `POST /mcp`의 초기화·ping·도구 목록과 현재 명시된 읽기 도구 7개다. 새 도구는 인증 allowlist 검토 전까지 자동으로 열리지 않는다. 공용 대화·사용 지표·피드백 API와 임의 MCP 메서드, JSON-RPC batch는 허용하지 않는다. 호출은 사람 사용률에서 제외하는 Discord 서비스 신원으로 기록한다.
+
+Hermes 설정에서는 OAuth 대신 `headers.Authorization: Bearer ${FRAMEWORK_WIKI_SERVICE_KEY}`를 사용한다. 실제 값은 서버의 비밀 환경 파일에만 저장하며 저장소·로그에 기록하지 않는다. Gateway 재시작 후 도구 목록과 실제 `get_context` 호출을 확인한다. 위키 갱신은 Discord Bot 저장소의 제안·참여자 승인·Draft PR 흐름을 사용한다.
