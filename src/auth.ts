@@ -52,11 +52,21 @@ export class GitHubAuth {
   }
 
   authorizeServiceRead(request: FastifyRequest): boolean {
-    const key = process.env.WIKI_SERVICE_KEY;
-    if (!key || key.length < 32 || request.method !== "GET") return false;
+    if (request.method !== "GET") return false;
     if (!["/api/context", "/api/outline", "/api/note"].includes(request.url.split("?")[0])) return false;
-    const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-    return Boolean(bearer && safeEqual(bearer, key));
+    return this.hasServiceCredential(request);
+  }
+
+  authorizeServiceMcpRead(request: FastifyRequest): boolean {
+    if (request.method !== "POST" || request.url.split("?")[0] !== "/mcp" || !this.hasServiceCredential(request)) return false;
+    const body = request.body;
+    if (!body || typeof body !== "object" || Array.isArray(body)) return false;
+    const message = body as { method?: unknown; params?: unknown };
+    if (typeof message.method === "string" && ["initialize", "notifications/initialized", "ping", "tools/list"].includes(message.method)) return true;
+    if (message.method !== "tools/call" || !message.params || typeof message.params !== "object" || Array.isArray(message.params)) return false;
+    const name = (message.params as { name?: unknown }).name;
+    // Review additions here before exposing new MCP tools to the service credential.
+    return typeof name === "string" && ["search_wiki", "read_note", "get_context", "get_note_outline", "read_sections", "get_current_metrics", "get_wiki_status"].includes(name);
   }
 
   identity(request: FastifyRequest): string | null {
@@ -238,6 +248,13 @@ export class GitHubAuth {
 
   private mac(value: string) {
     return createHmac("sha256", this.sessionSecret!).update(value).digest("base64url");
+  }
+
+  private hasServiceCredential(request: FastifyRequest): boolean {
+    const key = process.env.WIKI_SERVICE_KEY;
+    if (!key || key.length < 32) return false;
+    const bearer = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+    return Boolean(bearer && safeEqual(bearer, key));
   }
 
   private readCookie(request: FastifyRequest, name: string) {
