@@ -31,7 +31,6 @@ async function WikiIndex() {
     return (
       <DocsPage>
         <DocsTitle>Framework Wiki</DocsTitle>
-        <DocsDescription>팀의 기술 문서와 프로젝트 기록을 검색하고 읽어 보세요.</DocsDescription>
         <DocsBody>
           <p>{unavailableMessage(result.reason)}</p>
           {result.reason === 'unauthorized' && <p><a href="/auth/github/login">GitHub로 로그인</a></p>}
@@ -52,9 +51,7 @@ async function WikiIndex() {
   return (
     <DocsPage>
       <DocsTitle className="wiki-index-title">Framework Wiki</DocsTitle>
-      <DocsDescription className="wiki-index-description">팀의 기술 문서와 프로젝트 기록.</DocsDescription>
       <DocsBody>
-        <p className="wiki-index-summary">{result.data.length.toLocaleString('ko-KR')}개 문서. 주제를 선택하거나 문서를 검색하세요.</p>
         <div className="wiki-index-section">
           <h2>주제별 문서</h2>
           <span>{orderedGroups.length}개 주제</span>

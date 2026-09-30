@@ -141,6 +141,19 @@ select {
   gap: 8px;
 }
 
+#nd-sidebar > div:last-child > div:has(> [data-theme-toggle]) {
+  width: fit-content;
+  margin-inline-start: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+#nd-sidebar [data-theme-toggle] {
+  border: 1px solid var(--color-fd-border);
+  border-radius: var(--wiki-radius);
+}
+
 .wiki-header-actions-compact {
   flex: 0 0 auto;
   gap: 0.25rem;
@@ -737,16 +750,6 @@ select {
   flex-direction: column;
 }
 
-.wiki-chat-shared-notice {
-  margin: 0;
-  padding: 0.4rem 0.7rem;
-  border-bottom: 1px solid var(--color-fd-border);
-  background: color-mix(in srgb, var(--wiki-accent) 5%, var(--color-fd-background));
-  color: var(--color-fd-muted-foreground);
-  font-size: 0.66rem;
-  line-height: 1.4;
-}
-
 .wiki-chat-message-user {
   white-space: pre-wrap;
 }
@@ -831,27 +834,11 @@ select {
 .wiki-chat-panel-popup .wiki-chat-header {
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding: 0.75rem;
-}
-
-.wiki-chat-heading {
-  min-width: 0;
-}
-
-.wiki-chat-panel-popup .wiki-chat-heading {
-  flex: 1 0 100%;
-  padding-left: 6rem;
-  min-height: 1.9rem;
-  display: flex;
-  align-items: center;
-}
-
-.wiki-chat-panel-popup .wiki-chat-subtitle {
-  display: none;
+  padding: 44px 0.75rem 0.75rem;
 }
 
 .wiki-chat-panel-popup .wiki-chat-toolbar {
-  flex: 1 0 100%;
+  margin-inline-start: auto;
   justify-content: flex-end;
   flex-wrap: wrap;
 }
@@ -860,12 +847,6 @@ select {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-}
-
-.wiki-chat-subtitle {
-  margin: 0.2rem 0 0;
-  color: var(--color-fd-muted-foreground);
-  font-size: 0.73rem;
 }
 
 .wiki-icon-button {
@@ -1046,14 +1027,6 @@ select {
   opacity: 0.5;
 }
 
-.wiki-chat-hint {
-  margin: 0;
-  padding: 0 0.9rem 0.75rem;
-  color: var(--color-fd-muted-foreground);
-  font-size: 0.66rem;
-  text-align: center;
-}
-
 .wiki-auth-card {
   margin: 1rem 0;
   padding: 16px;
@@ -1072,20 +1045,6 @@ select {
   font-weight: 400;
   line-height: 1.2;
   letter-spacing: -0.045em;
-}
-
-.wiki-index-description {
-  max-width: 32rem;
-  margin-top: 16px;
-  color: var(--color-fd-muted-foreground);
-  font-size: 16px;
-  line-height: 1.6;
-}
-
-.wiki-index-summary {
-  margin: 32px 0 48px;
-  color: var(--color-fd-muted-foreground);
-  font-size: 14px;
 }
 
 .wiki-index-section {
@@ -1815,10 +1774,6 @@ select {
     flex-wrap: wrap;
     gap: 0.5rem;
     padding: 0.75rem;
-  }
-
-  .wiki-chat-heading {
-    flex: 1 0 100%;
   }
 
   .wiki-chat-toolbar {

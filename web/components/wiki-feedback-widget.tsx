@@ -207,7 +207,7 @@ export function WikiFeedbackWidget() {
               onChange={(event) => setIncludeDiagnostics(event.target.checked)}
               disabled={sending}
             />
-            <span>현재 페이지 경로와 화면 크기를 함께 보냅니다.</span>
+            <span>이 페이지 주소와 화면 크기도 첨부하기</span>
           </label>
 
           {notice && (

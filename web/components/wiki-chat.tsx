@@ -364,7 +364,6 @@ function ChatSurface(props: ChatSurfaceProps) {
   const isFull = props.variant === 'full';
   const showHistory = historyOpen;
   const isMobileFull = props.variant === 'mobile-full';
-  const pathLabel = props.pathname.startsWith('/docs') ? '문서와 함께' : '위키와 함께';
 
   useEffect(() => {
     if (window.matchMedia('(max-width: 760px)').matches) setHistoryOpen(false);
@@ -417,10 +416,7 @@ function ChatSurface(props: ChatSurfaceProps) {
     >
       {props.variant === 'popup' && resizeHandle}
       <header className="wiki-chat-header">
-        <div className="wiki-chat-heading">
-          <p className="wiki-chat-title" id={titleId}>위키 Agent</p>
-          <p className="wiki-chat-subtitle">문서 근거와 팀 대화 기록을 함께 확인합니다</p>
-        </div>
+        <p className="wiki-chat-title" id={titleId}>Wiki Agent</p>
         <div className="wiki-chat-toolbar" aria-label="대화 도구">
           {(
             <button
@@ -438,8 +434,8 @@ function ChatSurface(props: ChatSurfaceProps) {
             <Plus size={18} aria-hidden="true" />
           </button>
           {props.variant === 'popup' && (
-            <button className="wiki-chat-toolbar-wide" type="button" onClick={props.onOpenSplit} title="문서와 나란히 보기">
-              문서와 나란히
+            <button className="wiki-chat-toolbar-wide" type="button" onClick={props.onOpenSplit} title="사이드 뷰">
+              사이드 뷰
             </button>
           )}
           {props.variant === 'split' && (
@@ -493,10 +489,6 @@ function ChatSurface(props: ChatSurfaceProps) {
               {reasoningOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </div>
-
-          <p className="wiki-chat-shared-notice" role="note">
-            이 대화 기록은 로그인한 팀원이 함께 볼 수 있습니다. 민감한 정보는 입력하지 마세요.
-          </p>
 
           {props.notice && (
             <p className={'wiki-chat-error wiki-chat-notice-' + props.notice.kind} role={props.notice.kind === 'error' ? 'alert' : 'status'}>
@@ -559,7 +551,6 @@ function ChatSurface(props: ChatSurfaceProps) {
               {props.sending ? <LoaderCircle size={17} className="animate-spin" aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}
             </button>
           </form>
-          <p className="wiki-chat-hint">Enter 전송 · Shift + Enter 줄바꿈 · {pathLabel}</p>
         </div>
       </div>
     </section>
