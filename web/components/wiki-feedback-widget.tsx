@@ -157,7 +157,7 @@ export function WikiFeedbackWidget() {
       <div className="wiki-feedback-panel">
         <header className="wiki-feedback-header">
           <div>
-            <p className="wiki-feedback-eyebrow">Framework 위키</p>
+            <p className="wiki-feedback-eyebrow">Framework Wiki</p>
             <h2 id={titleId}>위키 의견 보내기</h2>
             <p>팀이 위키 개선을 위해 검토합니다.</p>
           </div>
@@ -207,7 +207,7 @@ export function WikiFeedbackWidget() {
               onChange={(event) => setIncludeDiagnostics(event.target.checked)}
               disabled={sending}
             />
-            <span>현재 페이지 경로와 화면 크기를 함께 보냅니다.</span>
+            <span>이 페이지 주소와 화면 크기도 첨부하기</span>
           </label>
 
           {notice && (

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
 import { DocumentViewTracker } from '@/components/document-view-tracker';
@@ -29,8 +30,7 @@ async function WikiIndex() {
   if (!result.ok) {
     return (
       <DocsPage>
-        <DocsTitle>Framework 위키</DocsTitle>
-        <DocsDescription>팀의 기술 문서와 프로젝트 기록을 검색하고 읽어 보세요.</DocsDescription>
+        <DocsTitle>Framework Wiki</DocsTitle>
         <DocsBody>
           <p>{unavailableMessage(result.reason)}</p>
           {result.reason === 'unauthorized' && <p><a href="/auth/github/login">GitHub로 로그인</a></p>}
@@ -43,35 +43,44 @@ async function WikiIndex() {
   for (const note of result.data) {
     const name = typeof note.domain === 'string' && note.domain.trim()
       ? note.domain.trim()
-      : note.path.split('/')[0] || '기타 문서';
+      : note.path.includes('/') ? note.path.split('/')[0] : '프로젝트';
     groups.set(name, [...(groups.get(name) ?? []), note]);
   }
 
   const orderedGroups = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'));
   return (
     <DocsPage>
-      <DocsTitle>Framework 위키</DocsTitle>
-      <DocsDescription>팀의 기술 문서와 프로젝트 기록을 검색하고 읽어 보세요.</DocsDescription>
+      <DocsTitle className="wiki-index-title">Framework Wiki</DocsTitle>
       <DocsBody>
-        <p>현재 {result.data.length.toLocaleString('ko-KR')}개 문서를 제공하고 있습니다. 주제를 고르거나 위쪽 검색창에서 키워드를 입력하세요.</p>
-        <h2>주제별 문서</h2>
+        <div className="wiki-index-section">
+          <h2>주제별 문서</h2>
+          <span>{orderedGroups.length}개 주제</span>
+        </div>
         {orderedGroups.length > 0 ? (
-          <div className="wiki-overview-grid">
+          <ul className="wiki-overview-list">
             {orderedGroups.map(([name, notes]) => {
               const first = notes[0];
               return (
-                <Link className="wiki-overview-card" href={documentHref(first.path)} key={name}>
-                  <strong>{name}</strong>
-                  <span>{notes.length}개 문서 · {friendlyDocumentTitle(first.title, first.path)}</span>
-                </Link>
+                <li key={name}>
+                  <Link className="wiki-overview-link" href={documentHref(first.path)}>
+                    <span>
+                      <strong>{name}</strong>
+                      <span className="wiki-overview-preview">{friendlyDocumentTitle(first.title, first.path)}</span>
+                    </span>
+                    <span className="wiki-overview-count">{notes.length}개 문서</span>
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
         ) : (
           <p>표시할 문서가 없습니다.</p>
         )}
-        <h2>위키 Agent</h2>
-        <p>Discord에서는 Agent를 멘션하거나 Agent 답글에 회신해 논의할 수 있습니다. 이 화면의 <strong>위키 Agent</strong> 버튼으로도 위키 내용을 질문할 수 있습니다.</p>
+        <div className="wiki-index-help">
+          <p>문서에서 답을 찾기 어렵다면 위키 Agent에 질문하세요.</p>
+          <Link href="/docs/bot-guide">Agent 사용법 <span aria-hidden="true">↗</span></Link>
+        </div>
       </DocsBody>
     </DocsPage>
   );

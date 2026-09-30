@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ExternalLink, History, LoaderCircle, Maximize2, MessageSquareText, Minimize2, Plus, Send, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { ExternalLink, History, LoaderCircle, Maximize2, MessageSquareText, Minimize2, Plus, Send, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import { friendlyDocumentTitle, headingId, documentHref } from '@/lib/links';
 import { WikiMarkdown } from '@/components/wiki-markdown';
 import { recordWebEvent } from '@/lib/measurements';
-import { useChatPopupSize } from './chat-popup-resize';
 
 type Reasoning = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 type Citation = { path: string; title: string; section?: string; url?: string };
@@ -356,7 +355,6 @@ function ChatMessageView({ message, conversationId, onFeedback }: {
 
 function ChatSurface(props: ChatSurfaceProps) {
   const titleId = useId();
-  const { sizeStyle, resizeHandle } = useChatPopupSize(props.variant === 'popup');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const pendingScrollRef = useRef<{ height: number; top: number } | null>(null);
@@ -364,7 +362,6 @@ function ChatSurface(props: ChatSurfaceProps) {
   const isFull = props.variant === 'full';
   const showHistory = historyOpen;
   const isMobileFull = props.variant === 'mobile-full';
-  const pathLabel = props.pathname.startsWith('/docs') ? '문서와 함께' : '위키와 함께';
 
   useEffect(() => {
     if (window.matchMedia('(max-width: 760px)').matches) setHistoryOpen(false);
@@ -410,17 +407,12 @@ function ChatSurface(props: ChatSurfaceProps) {
       className={classes}
       role={isFull ? 'main' : 'dialog'}
       aria-labelledby={titleId}
-      style={props.variant === 'popup' ? sizeStyle : undefined}
       onKeyDown={(event) => {
         if (!isFull && event.key === 'Escape' && !event.nativeEvent.isComposing && !event.defaultPrevented && !document.querySelector('dialog[open]')) props.onClose();
       }}
     >
-      {props.variant === 'popup' && resizeHandle}
       <header className="wiki-chat-header">
-        <div className="wiki-chat-heading">
-          <p className="wiki-chat-title" id={titleId}>위키 Agent</p>
-          <p className="wiki-chat-subtitle">문서 근거와 팀 대화 기록을 함께 확인합니다</p>
-        </div>
+        <p className="wiki-chat-title" id={titleId}>Wiki Agent</p>
         <div className="wiki-chat-toolbar" aria-label="대화 도구">
           {(
             <button
@@ -438,8 +430,8 @@ function ChatSurface(props: ChatSurfaceProps) {
             <Plus size={18} aria-hidden="true" />
           </button>
           {props.variant === 'popup' && (
-            <button className="wiki-chat-toolbar-wide" type="button" onClick={props.onOpenSplit} title="문서와 나란히 보기">
-              문서와 나란히
+            <button className="wiki-chat-toolbar-wide" type="button" onClick={props.onOpenSplit} title="사이드 뷰">
+              사이드 뷰
             </button>
           )}
           {props.variant === 'split' && (
@@ -494,10 +486,6 @@ function ChatSurface(props: ChatSurfaceProps) {
             </select>
           </div>
 
-          <p className="wiki-chat-shared-notice" role="note">
-            이 대화 기록은 로그인한 팀원이 함께 볼 수 있습니다. 민감한 정보는 입력하지 마세요.
-          </p>
-
           {props.notice && (
             <p className={'wiki-chat-error wiki-chat-notice-' + props.notice.kind} role={props.notice.kind === 'error' ? 'alert' : 'status'}>
               {props.notice.text}
@@ -522,9 +510,8 @@ function ChatSurface(props: ChatSurfaceProps) {
               <p className="wiki-chat-loading" role="status"><LoaderCircle size={15} className="animate-spin" aria-hidden="true" /> 대화를 불러오고 있습니다…</p>
             ) : props.messages.length === 0 && !props.pendingMessage ? (
               <div className="wiki-chat-empty">
-                <Sparkles size={22} aria-hidden="true" />
-                <strong>팀 위키를 함께 살펴볼게요.</strong>
-                <span>질문을 시작하거나 왼쪽 목록에서 팀 대화를 이어가세요.</span>
+                <strong>무엇을 찾고 있나요?</strong>
+                <span>위키에 질문하거나 팀 대화를 이어가세요.</span>
               </div>
             ) : (
               <>
@@ -549,7 +536,7 @@ function ChatSurface(props: ChatSurfaceProps) {
             <textarea
               ref={textareaRef}
               aria-label="위키 Agent에게 질문"
-              placeholder="문서 신규·수정, 디자인·기획·일정을 물어보세요"
+              placeholder="위키에 질문하기"
               value={props.draft}
               onChange={(event) => props.onDraftChange(event.target.value)}
               onKeyDown={onComposerKeyDown}
@@ -560,7 +547,6 @@ function ChatSurface(props: ChatSurfaceProps) {
               {props.sending ? <LoaderCircle size={17} className="animate-spin" aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}
             </button>
           </form>
-          <p className="wiki-chat-hint">Enter 전송 · Shift + Enter 줄바꿈 · {pathLabel}</p>
         </div>
       </div>
     </section>

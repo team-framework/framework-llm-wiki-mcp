@@ -7,8 +7,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Framework LLM Wiki',
-    template: '%s | Framework LLM Wiki',
+    default: 'Framework Wiki',
+    template: '%s | Framework Wiki',
   },
   description: 'Framework 팀의 지식과 기술 문서를 검색하고 읽는 위키입니다.',
 };

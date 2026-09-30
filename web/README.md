@@ -1,4 +1,4 @@
-# Framework LLM Wiki web
+# Framework Wiki web
 
 Next.js 16 and Fumadocs render Markdown returned by the authenticated wiki API. The app fetches the page tree and note body at request time; it does not copy wiki documents into the frontend build.
 
@@ -36,3 +36,9 @@ The root layout mounts one shared chat provider. It keeps the active conversatio
 On a client-side wiki note navigation, the browser posts one `web.document_view` event. Search calls keep the `/api/search` array response and read its `X-Wiki-Event` response header to connect opened results. Chat citation clicks and answer ratings use the returned chat `measurement_id`. These events store identifiers and allowlisted aggregate facts; they do not send search terms, chat prompts, note bodies, or browser history to the measurement store.
 
 The floating “의견 보내기” control posts the selected categories and required comment to `/api/product-feedback`. Diagnostics are optional and unchecked by default; when enabled, the browser sends only the current `/docs` path and viewport dimensions. The insights page lists recent team comments without their submitter identity. Follow [`../docs/human-readable-documents.md`](../docs/human-readable-documents.md) to add `DisplayTitle` and `DisplayContent` frontmatter for a reader-facing title and Markdown body; the note page keeps an “원문 보기” toggle and defaults to the source when the display body is stale.
+
+## Visual style
+
+The Fumadocs shell uses neutral colors and the system font stack. Custom UI follows [OpenAI DESIGN MD](https://www.designmd.co/d/openai): small 5px corners, flat surfaces, spacing based on 8px, and 400ms ease transitions. Body text uses a darker neutral for reading contrast; the reference gray `#8e8ea0` is reserved for chart marks. The light and dark themes use the same hierarchy.
+
+The supplied Framework wordmark is in `public/docs/framework.png`, served through the existing `/docs` proxy. `WikiBrand` displays the wordmark with its original proportions, and the Docker runner copies public assets. Search, chat popups, feedback dialogs, and link arrows use short opacity or position transitions. Reduced-motion preferences disable animation and smooth scrolling. The [OpenAI brand reel](https://openai.com/brand/) informed the restrained motion treatment.
