@@ -51,7 +51,7 @@ export default function BotGuidePage() {
         <p>정기 요약도 사람이 결론과 변경안을 승인해야 Draft PR을 만듭니다. 팀원이 PR을 검토·병합하고 서버가 동기화한 뒤 웹과 MCP 검색에 반영됩니다.</p>
 
         <h2 id={headingId(sections[3])}>{sections[3]}</h2>
-        <p>Discord에서는 Hermes의 <code>/reasoning</code> 명령에서 추론 수준을 선택합니다. 웹 챗봇에서는 질문 입력창 위의 선택 메뉴를 사용하세요. 기본값은 <code>low</code>입니다.</p>
+        <p>Discord에서는 Hermes의 <code>/reasoning</code> 명령에서 추론 수준을 선택합니다. 웹 챗봇에서는 질문 입력창 위의 선택 메뉴를 사용하세요. 웹 위키 Agent의 기본값은 <code>max</code>이며, 메뉴에서 질문별로 바꿀 수 있습니다.</p>
 
         <h2 id={headingId(sections[4])}>{sections[4]}</h2>
         <p>팀 GitHub 계정으로 로그인하면 화면 오른쪽 아래의 <strong>위키 Agent</strong>를 열 수 있습니다. 상단과 문서 메뉴의 <strong>의견 보내기</strong>는 위키 개선 의견을 작성하는 버튼입니다. 답변의 문서 출처를 열어 근거를 확인할 수 있습니다. 수정·추가 요청에는 변경할 내용과 이유를 제안하며, 웹 챗봇이 원문을 직접 수정하지는 않습니다.</p>

@@ -33,7 +33,7 @@ def answer(body):
             with client.responses.stream(
                 model=MODEL, instructions=body["instructions"],
                 input=[{"role": "user", "content": body["input"]}],
-                reasoning={"effort": body.get("reasoning", "low")}, store=False,
+                reasoning={"effort": body.get("reasoning", "max")}, service_tier="priority", store=False,
             ) as stream:
                 for event in stream:
                     if event.type == "response.output_text.delta":
@@ -48,9 +48,9 @@ def answer(body):
                 raise ValueError("empty_answer")
             usage = response.usage.model_dump() if response.usage else None
             print(json.dumps({"event": "wiki_answer_completed", "model": response.model,
-                              "reasoning": body.get("reasoning", "low"),
-                              "service_tier": response.service_tier, "usage": usage}), flush=True)
-            return {"answer": text, "model": response.model, "reasoning": body.get("reasoning", "low"), "usage": usage}
+                              "reasoning": body.get("reasoning", "max"),
+                              "requested_tier": "priority", "service_tier": response.service_tier, "usage": usage}), flush=True)
+            return {"answer": text, "model": response.model, "reasoning": body.get("reasoning", "max"), "usage": usage, "service_tier": response.service_tier, "requested_tier": "priority"}
         finally:
             timer.cancel()
 
@@ -86,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict) or not all(isinstance(body.get(k), str) for k in ("instructions", "input")):
                 return self.reply(400, {})
-            if body.get("reasoning", "low") not in EFFORTS:
+            if body.get("reasoning", "max") not in EFFORTS:
                 return self.reply(400, {})
         except (ValueError, TimeoutError):
             return self.reply(400, {})

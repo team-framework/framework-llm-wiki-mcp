@@ -132,7 +132,7 @@ app.post("/api/sections", async (request) => {
 });
 const savedChatInput = z.object({
   conversation_id: z.string().uuid(), expected_version: z.number().int().min(0), request_id: z.string().uuid(),
-  message: z.string().trim().min(1).max(4_000), reasoning: z.enum(["none", "low", "medium", "high", "xhigh", "max"]).default("low")
+  message: z.string().trim().min(1).max(4_000), reasoning: z.enum(["none", "low", "medium", "high", "xhigh", "max"]).default("max")
 }).strict();
 const historyFailure = (error: unknown, reply: FastifyReply) => {
   if (error instanceof HistoryError) return reply.code(error.status).send({ error: error.code, message: error.message });
