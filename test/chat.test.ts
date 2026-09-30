@@ -25,6 +25,11 @@ test("rejects spoofed system history, unbounded history, and unsupported reasoni
   assert.equal(chatInput.safeParse({ message: "hi", history: Array.from({ length: 5 }, () => ({ role: "user", content: "a".repeat(6000) })) }).success, false);
 });
 
+test("defaults to max reasoning and preserves an explicitly selected level", () => {
+  assert.equal(chatInput.parse({ message: "연결 방법" }).reasoning, "max");
+  assert.equal(chatInput.parse({ message: "연결 방법", reasoning: "low" }).reasoning, "low");
+});
+
 test("provider errors are redacted, not forwarded to users", async () => {
   const chat = new WikiChat(async () => evidence, { url: "http://127.0.0.1", key: "key", fetchImpl: async () => { throw new Error("private credential"); } });
   await assert.rejects(chat.answer(input, "member"), (error: unknown) => error instanceof ChatError && error.status === 502 && !error.message.includes("credential"));

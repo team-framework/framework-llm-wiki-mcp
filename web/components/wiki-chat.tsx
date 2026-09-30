@@ -585,7 +585,7 @@ export function WikiChatApp({ children }: { children: React.ReactNode }) {
   const [sending, setSending] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [reasoning, setReasoning] = useState<Reasoning>('low');
+  const [reasoning, setReasoning] = useState<Reasoning>('max');
   const [notice, setNotice] = useState<Notice | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);

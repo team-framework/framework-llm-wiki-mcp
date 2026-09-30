@@ -33,15 +33,21 @@ test("two members share persisted messages across app restart; retry is idempote
   const f = await fixture(true);
   const originalFetch = globalThis.fetch;
   let calls = 0;
-  globalThis.fetch = async () => { calls++; return Response.json({ answer: "근거를 확인하세요. [1]", model: "gpt-6-luna" }); };
+  let sentReasoning: unknown;
+  globalThis.fetch = async (_url, init) => {
+    calls++;
+    sentReasoning = JSON.parse(String(init?.body)).reasoning;
+    return Response.json({ answer: "근거를 확인하세요. [1]", model: "gpt-6-luna" });
+  };
   let restarted: Awaited<ReturnType<typeof buildApp>> | undefined;
   try {
     const created = await f.app.inject({ method: "POST", url: "/api/chat/conversations", headers: f.headers("alice"), payload: {} });
     assert.equal(created.statusCode, 201);
     const conversation = created.json().conversation;
-    const body = { conversation_id: conversation.id, expected_version: 0, request_id: uuid(), message: "첫 질문", reasoning: "low" };
+    const body = { conversation_id: conversation.id, expected_version: 0, request_id: uuid(), message: "첫 질문" };
     const answered = await f.app.inject({ method: "POST", url: "/api/chat", headers: f.headers("alice"), payload: body });
     assert.equal(answered.statusCode, 200);
+    assert.equal(sentReasoning, "max");
     assert.equal(answered.json().conversation.version, 1);
     assert.equal(answered.json().messages.length, 2);
     assert.equal(answered.json().messages[0].author, "alice");

@@ -4,7 +4,7 @@ export const reasoningLevels = ["none", "low", "medium", "high", "xhigh", "max"]
 export const chatInput = z.object({
   message: z.string().trim().min(1).max(4_000),
   history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(6_000) }).strict()).max(12).default([]),
-  reasoning: z.enum(reasoningLevels).default("low")
+  reasoning: z.enum(reasoningLevels).default("max")
 }).strict().refine((value) => value.history.reduce((sum, item) => sum + item.content.length, 0) <= 24_000, "대화 기록이 너무 깁니다.");
 
 export type ChatInput = z.infer<typeof chatInput>;
