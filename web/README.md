@@ -27,7 +27,7 @@ The docs routes use no-store fetches and dynamic rendering. Note paths map to `/
 
 The docs sidebar is built from `GET /api/tree`. Search displays results from `/api/search?q=...` and labels the index as semantic and keyword search. Markdown renders GitHub Flavored Markdown without enabling raw HTML; `[[wikilinks]]` become links only when the API resolves them to a unique note.
 
-The Agent panel posts the current question, prior chat turns, and a selectable reasoning level to `/api/chat`. It starts at `low`, displays source links from the response, and links unauthenticated users to `/auth/github/login`. The Bot guide is available from the docs navigation at `/docs/bot-guide`.
+The root layout mounts one shared chat provider. It keeps the active conversation and unsent draft during client-side docs navigation. The floating Wiki Agent opens a resizable popup, a side-by-side docs/chat layout, or the standalone `/chat` page. Smaller screens use a safe-area-aware full-height chat view. The history list reads shared conversations from `/api/chat/conversations`, supports title search and pagination, and loads older messages on demand. `/api/chat` saves a user/assistant pair with the conversation version and request UUID, so a retry after an uncertain network result does not create duplicate messages. Unauthenticated users see a GitHub sign-in link. The docs header and sidebar use “의견 보내기” for the product-feedback workflow. See `/docs/bot-guide` for the UI controls.
 
 ## Usage and feedback
 

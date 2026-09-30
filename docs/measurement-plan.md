@@ -65,7 +65,7 @@ shadow 표본 수와 합계를 보고한다. 샘플링에서 빠진 요청의 �
 
 허용된 기능은 다음과 같다.
 
-- Web: `web.search`, `web.chat`, `web.document_view`, `web.search_open`, `web.citation_open`
+- Web: `web.search`, `web.chat`, `web.document_view`, `web.search_open`, `web.citation_open`, `web.chat_popup_open`, `web.chat_split_open`, `web.chat_page_open`, `web.chat_history_open`
 - MCP: `mcp.search_wiki`, `mcp.read_note`, `mcp.get_context`, `mcp.get_note_outline`, `mcp.read_sections`, `mcp.get_current_metrics`
 - 서비스 조회: `discord.context`, `discord.note`, `discord.outline`
 
@@ -73,7 +73,7 @@ MCP는 tool 단위로 기록하며 HTTP 요청 수를 추가 집계하지 않는
 
 corpus commit은 최대 60초 캐시한 값이다. 따라서 이벤트의 commit이 반환된 모든 문서와 원자적으로 일치하는 snapshot임을 보장하지 않는다. shadow에서는 반환 evidence의 개별 문서 hash를 다시 비교한다. `work_ms`는 본 기능 완료까지, `latency_ms`는 부가 토큰 계산·shadow까지 마친 서버 wrapper 시간이다. SQLite INSERT 이후 응답 직렬화·네트워크·화면 렌더 시간은 포함하지 않는다. 클릭 이벤트의 latency 0은 응답 속도를 측정한 값이 아니므로 성능 비교에 사용하지 않는다.
 
-부가 계산에 실패해도 기본 기능 outcome 기록을 남긴다. DB 저장 실패는 사용자 문서 접근을 막지 않고 프로세스 내 `dropped_events_this_process`를 증가시킨다. 이 counter는 재시작하면 초기화되며 영속적인 전체 누락률을 뜻하지 않는다. 새 UUID로 생성하는 이벤트는 일반 재시도에 대한 멱등 키가 없다. 답변 평가는 event ID로 upsert하지만 기능 재요청·클릭 재전송은 여러 행이 될 수 있다.
+부가 계산에 실패해도 기본 기능 outcome 기록을 남긴다. DB 저장 실패는 사용자 문서 접근을 막지 않고 프로세스 내 `dropped_events_this_process`를 증가시킨다. 이 counter는 재시작하면 초기화되며 영속적인 전체 누락률을 뜻하지 않는다. UI에서 새 UUID로 생성하는 이벤트는 일반 재시도에 대한 멱등 키가 없다. 공용 채팅의 완료된 질문은 별도 요청 ID로 결과를 재사용하므로 같은 요청의 재전송에서 `web.chat` 이벤트를 다시 만들지 않는다. 답변 평가는 event ID로 upsert하지만 기능 재요청·클릭 재전송은 여러 행이 될 수 있다.
 
 ## 신원·원문·보관 정책
 
@@ -82,6 +82,8 @@ corpus commit은 최대 60초 캐시한 값이다. 따라서 이벤트의 commit
 서비스 키의 호출은 별도의 service HMAC 신원으로 기록한다. 현재 Discord는 봇 서비스 사용이며 실제 Discord 참여자의 사용·재방문을 식별하지 않는다. GitHub 사용자와 Discord 사용자를 연결하거나 둘의 고유 사용자 수를 합친 구현은 없다.
 
 자동 계측 이벤트에는 원본 질문·답변·대화·문서, 로그인명, 이메일, IP, bearer/cookie, 전체 URL을 저장하지 않는다. 문서 탐색 경로는 별도 document namespace HMAC으로 남긴다. 허용 필드만 저장하고 수치의 finite·음수 여부, hash 형태, reason·retrieval·baseline enum을 검증한다. HMAC은 익명화 완료의 증명이 아닌 가명 처리다.
+
+웹의 팀 공용 채팅 기능은 별도 DB에 질문·답변 원문과 출처를 저장한다. 로그인한 팀원이 이전 대화를 읽고 이어서 질문하기 위한 제품 데이터이며 계측 이벤트 원문 수집으로 사용하지 않는다. 공용 기록은 자동 만료하지 않고, 아래 90일 삭제 규칙은 계측 이벤트와 제품 의견에 적용한다. 공용 대화를 읽은 사람에게 원 작성자의 답변 평가 권한을 넘기지 않는다.
 
 사용자가 직접 제출한 제품 의견은 별도 `product_feedback`에 **자유문장 원문**을 저장한다. 사용자가 진단 정보 첨부를 선택하면 `/docs` 아래 페이지 경로와 viewport 크기도 저장한다. query string·fragment·IP·user-agent는 수집하지 않는다. 문서 경로와 자유문장은 팀원이 읽을 수 있으므로 제출 화면에서 저장 내용·열람 범위를 안내해야 한다. 이 명시적 제출 예외를 자동 질문·문서 로그 저장으로 확대하지 않는다.
 
@@ -98,7 +100,7 @@ corpus commit은 최대 60초 캐시한 값이다. 따라서 이벤트의 commit
 | API | 입력·결과 |
 | --- | --- |
 | `GET /api/measurements?days=30` | days는 `7`, `30`, `90`. 기본 30. `schema_version`, `generated_at`, `started_at`, `range`, `status`, `active_people`, `requests`, `service_requests`, `retention`, `features`, `daily`, `feedback`, `search_to_open`, `instrumentation`, `caveats`를 반환한다. |
-| `POST /api/events` | `feature`는 웹 문서 열기·검색 클릭·인용 클릭 3개만 허용한다. 선택적인 `path`, `parent_event_id`를 받는다. 경로는 실제 위키 outline으로 검증하고 hash로 저장한다. parent가 있으면 본인 검색/chat 성공 이벤트인지 확인한다. 임의 feature·raw payload 저장 route가 아니다. |
+| `POST /api/events` | `feature`는 웹 문서 열기·검색 클릭·인용 클릭과 채팅 작은 창·분할·전용 페이지·공용 기록 열기를 허용한다. 선택적인 `path`, `parent_event_id`를 받는다. 경로는 실제 위키 outline으로 검증하고 hash로 저장한다. parent가 있으면 본인 검색/chat 성공 이벤트인지 확인한다. 임의 feature·raw payload 저장 route가 아니다. |
 | `POST /api/feedback` | `{event_id, rating: 'positive' 또는 'negative', reason?}`. reason은 `correct`, `missing_context`, `outdated`, `irrelevant`, `slow`, `other`. 본인의 성공한 웹 chat 이벤트만 평가할 수 있다. 같은 event를 upsert해 기존 평가를 바꾼다. |
 | `POST /api/product-feedback` | categories 1~3개(`bug`, `search_miss`, `unclear_docs`, `good_result`, `slow`, `other`), details 1~4,000자. 선택적인 diagnostics는 `/docs` 경로(최대 1,000자, query/fragment 금지)와 viewport width 320~10,000, height 200~10,000이다. 사람별 최근 24시간 10건 제한이며 초과하면 429다. |
 | `GET /api/product-feedback?limit=20` | production 제품 의견 최근 20개, 최대 100개. 팀원이 categories·details·진단 정보·시각·release를 읽는다. 작성자 HMAC은 응답에 포함하지 않는다. |
@@ -107,7 +109,7 @@ chat 응답의 `measurement_id`와 검색 응답의 `X-Wiki-Event`로 평가·�
 
 보고 기간은 KST 오늘을 포함한 7/30/90일이며 `today_partial=true`다. 하루를 완전히 관측했다고 가정하지 않는다. 선택된 production 이벤트가 없으면 최상위 `status=not_collected`와 사용자·요청 합계 `null`을 반환한다. 분모 0의 비율도 `null`이다. 세부 표본 count 0은 기록된 표본이 없음을 나타낸다. 측정기가 정상 동작한 무사용 기간과 수집 중단 기간을 구분하는 health timeline은 아직 없으므로 빈 기간을 실제 사용량 0으로 단정하지 않는다.
 
-`daily`는 선택 기간의 날짜를 빠짐없이 반환한다. production 이벤트가 없는 날짜는 `status=not_collected`, `requests=null`, `people=null`이다. 서비스 요청만 기록한 날짜는 `status=measured`, 실제 요청 수와 `people=0`을 반환한다. 실패한 production 요청도 관측에 포함하지만 validation만 있는 날짜는 미관측이다. 웹은 미관측 날짜에 “관측 자료 없음”을 표시하고, 문서 열기·클릭의 지연은 “측정 대상 아님”으로 표시한다. 빈 날짜를 0건이나 0ms 성능으로 바꾸지 않는다.
+`daily`는 선택 기간의 날짜를 빠짐없이 반환한다. production 이벤트가 없는 날짜는 `status=not_collected`, `requests=null`, `people=null`이다. 서비스 요청만 기록한 날짜는 `status=measured`, 실제 요청 수와 `people=0`을 반환한다. 실패한 production 요청도 관측에 포함하지만 validation만 있는 날짜는 미관측이다. 웹은 미관측 날짜에 “관측 자료 없음”을 표시하고, 문서 열기·클릭·채팅 화면 전환의 지연은 “측정 대상 아님”으로 표시한다. 이 UI 이벤트는 응답 지연 표본을 만들지 않아 JSON에서도 p50·p95가 null이고 `p95_status=not_applicable`이다. 빈 날짜를 0건이나 0ms 성능으로 바꾸지 않는다.
 
 ## 배포 전후 보고와 후속 확장
 
@@ -141,3 +143,8 @@ hybrid 실행에는 `--qdrant-url`, `--embedding-url`, 선택적인 `--alias`를
 7. DB 실패가 기능 요청을 막지 않고 계측 누락을 드러낸다. 실제 latency에 shadow 비용을 포함하고 클릭의 고정 0ms를 성능 수치로 해석하지 않는다.
 
 근거는 고정 평가의 세션 집계와 현재 계측·인증·API 소스다. 이 문서만으로 운영 실사용, 유료 비용 절감, 장기 재방문 효과가 입증되지는 않는다.
+
+
+2026-09-30부터 채팅 작은 창·분할·전용 페이지와 공용 기록 열기를 구분해 기록한다. 해당 배포 전에는 이 네 이벤트를 수집하지 않았으므로 전체 요청 수를 그대로 전후 비교하지 않는다. 같은 feature와 release의 사용률·사람 수를 비교한다. 크기 조절 드래그와 목록 갱신은 별도 사용으로 세지 않는다.
+
+공용 채팅의 `web.chat` 지연은 검색·모델 요청과 계측 작업 시간을 포함한다. 대화 예약·최종 기록 저장과 브라우저 전송은 이 측정 구간 밖에 있으므로 화면에서 체감하는 전체 응답 시간으로 해석하지 않는다.

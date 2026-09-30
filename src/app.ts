@@ -2,13 +2,14 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import proxy from "@fastify/http-proxy";
 import { z } from "zod";
 import { WikiChat, ChatError, chatInput } from "./chat.js";
+import { ChatHistoryStore, HistoryError } from "./chat-history.js";
 import formbody from "@fastify/formbody";
 import Fastify from "fastify";
 import { GitHubAuth } from "./auth.js";
 import { createMcpServer } from "./mcp.js";
 import { WikiVectorIndex } from "./vector.js";
 import { WikiService } from "./wiki.js";
-import { MeasurementStore, WikiMeasurements, type MeasurementActor } from "./measurements.js";
+import { MeasurementStore, WikiMeasurements, WEB_INTERACTION_FEATURES, type MeasurementActor } from "./measurements.js";
 import type { FastifyRequest, FastifyReply } from "fastify";
 
 export async function buildApp() {
@@ -30,6 +31,7 @@ if (process.env.WIKI_MEASUREMENT_PATH && process.env.WIKI_MEASUREMENT_SECRET) {
   catch { app.log.warn("Wiki measurement storage is unavailable."); }
 }
 const measurements = measurementStore ? new WikiMeasurements(measurementStore, wiki) : null;
+const chatHistory = process.env.WIKI_CHAT_PATH ? new ChatHistoryStore(process.env.WIKI_CHAT_PATH) : null;
 const actor = (request: FastifyRequest, client: MeasurementActor["client"]): MeasurementActor => auth.authorizeServiceRead(request)
   ? { identity: "wiki-discord-service", kind: "service", client: "discord" }
   : { identity: auth.identity(request)!, kind: "person", client };
@@ -43,7 +45,7 @@ const sameOrigin = (request: FastifyRequest, reply: FastifyReply) => {
 };
 const measurementPruneTimer = measurementStore ? setInterval(() => { try { measurementStore?.prune(); } catch { app.log.warn("Wiki measurement retention cleanup is unavailable."); } }, 60 * 60_000) : null;
 measurementPruneTimer?.unref();
-app.addHook("onClose", async () => { if (measurementPruneTimer) clearInterval(measurementPruneTimer); measurementStore?.close(); });
+app.addHook("onClose", async () => { if (measurementPruneTimer) clearInterval(measurementPruneTimer); measurementStore?.close(); chatHistory?.close(); });
 const chat = new WikiChat((query) => wiki.getContext(query, { maxChars: 12_000, limit: 8 }));
 await app.register(formbody);
 app.setErrorHandler((error, _request, reply) => {
@@ -64,7 +66,7 @@ app.addHook("onRequest", async (request, reply) => {
     return reply.code(403).send({ error: "Origin is not allowed." });
   }
   if (!auth.authorizeServiceRead(request) && !(await auth.authorize(request))) {
-    if ((pathname === "/" || pathname === "/docs" || pathname.startsWith("/docs/")) && !request.headers.authorization) return auth.startLogin(reply);
+    if ((pathname === "/" || pathname === "/docs" || pathname.startsWith("/docs/") || pathname === "/chat" || pathname.startsWith("/chat/")) && !request.headers.authorization) return auth.startLogin(reply);
     return auth.rejectResourceRequest(reply);
   }
 });
@@ -128,9 +130,65 @@ app.post("/api/sections", async (request) => {
     max_chars: z.number().int().min(1000).max(24000).optional(), cursor: z.string().optional() }).parse(request.body);
   return wiki.readSections(input.refs, { maxChars: input.max_chars ?? 12000, cursor: input.cursor });
 });
+const savedChatInput = z.object({
+  conversation_id: z.string().uuid(), expected_version: z.number().int().min(0), request_id: z.string().uuid(),
+  message: z.string().trim().min(1).max(4_000), reasoning: z.enum(["none", "low", "medium", "high", "xhigh", "max"]).default("low")
+}).strict();
+const historyFailure = (error: unknown, reply: FastifyReply) => {
+  if (error instanceof HistoryError) return reply.code(error.status).send({ error: error.code, message: error.message });
+  throw error;
+};
+app.get("/api/chat/conversations", async (request, reply) => {
+  if (!chatHistory) return reply.code(503).send({ error: "chat_history_unavailable" });
+  const query = z.object({ limit: z.coerce.number().int().min(1).max(50).default(30), cursor: z.string().max(256).optional() }).strict().parse(request.query);
+  try { return chatHistory.list(query.limit, query.cursor); } catch (error) { return historyFailure(error, reply); }
+});
+app.post("/api/chat/conversations", async (request, reply) => {
+  if (!sameOrigin(request, reply)) return;
+  if (!chatHistory) return reply.code(503).send({ error: "chat_history_unavailable" });
+  if (!z.object({}).strict().safeParse(request.body ?? {}).success) return reply.code(400).send({ error: "invalid_request" });
+  try { return reply.code(201).send({ conversation: chatHistory.create(auth.identity(request)!) }); }
+  catch (error) { return historyFailure(error, reply); }
+});
+app.get("/api/chat/conversations/:id", async (request, reply) => {
+  if (!chatHistory) return reply.code(503).send({ error: "chat_history_unavailable" });
+  const params = z.object({ id: z.string().uuid() }).parse(request.params);
+  const query = z.object({ before_seq: z.coerce.number().int().min(1).optional(), limit: z.coerce.number().int().min(1).max(100).default(50) }).strict().parse(request.query);
+  try {
+    const result = chatHistory.read(params.id, query.limit, query.before_seq);
+    const identity = auth.identity(request)!;
+    return { ...result, messages: result.messages.map((message) => {
+      if (message.role !== "assistant") return message;
+      const can_feedback = Boolean(message.measurement_id && measurementStore?.hasEvent(identity, message.measurement_id, "web.chat"));
+      return { ...message, measurement_id: can_feedback ? message.measurement_id : null, can_feedback };
+    }) };
+  } catch (error) { return historyFailure(error, reply); }
+});
 app.post("/api/chat", async (request, reply) => {
   // Browser sessions must present the same origin. Bearer clients do not rely on cookies.
   if (!sameOrigin(request, reply)) return;
+  const body = request.body;
+  const saved = body !== null && typeof body === "object" && ["conversation_id", "expected_version", "request_id"].some((key) => key in body);
+  if (saved) {
+    if (!chatHistory) return reply.code(503).send({ error: "chat_history_unavailable" });
+    const parsed = savedChatInput.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_chat_input", message: "대화 요청을 확인해 주세요." });
+    const input = parsed.data, identity = auth.identity(request)!;
+    let reserved;
+    try { reserved = chatHistory.reserve(input.conversation_id, input.expected_version, input.request_id, identity, input.message, input.reasoning); }
+    catch (error) { return historyFailure(error, reply); }
+    if (reserved.completed) return reserved.completed;
+    try {
+      const result = await measure(request, "web", "web.chat", () => chat.answer({ message: input.message, reasoning: input.reasoning, history: reserved.history }, identity));
+      const response = { ...result.value, measurement_id: result.id, history_truncated: reserved.history_truncated,
+        ...(!measurements ? { measurement_status: "disabled" } : {}) };
+      return chatHistory.complete(input.conversation_id, input.request_id, identity, input.message, result.value.answer, result.value.sources, result.id, response);
+    } catch (error) {
+      chatHistory.release(input.conversation_id, input.request_id);
+      if (error instanceof ChatError) return reply.code(error.status).send({ error: error.code, message: error.message });
+      return historyFailure(error, reply);
+    }
+  }
   const parsed = chatInput.safeParse(request.body);
   if (!parsed.success) return reply.code(400).send({ error: "invalid_chat_input", message: "질문 또는 대화 기록의 길이를 확인해 주세요." });
   reply.header("Cache-Control", "private, no-store");
@@ -143,7 +201,7 @@ app.post("/api/chat", async (request, reply) => {
 });
 app.post("/api/events", async (request, reply) => {
   if (!sameOrigin(request, reply)) return;
-  const input = z.object({ feature: z.enum(["web.document_view", "web.search_open", "web.citation_open"]), path: z.string().min(1).max(1000).optional(), parent_event_id: z.string().uuid().optional() }).strict().parse(request.body);
+  const input = z.object({ feature: z.enum(WEB_INTERACTION_FEATURES), path: z.string().min(1).max(1000).optional(), parent_event_id: z.string().uuid().optional() }).strict().parse(request.body);
   if (input.path) await wiki.getOutline(input.path);
   if (!measurementStore) return { measurement_id: null, measurement_status: "disabled" };
   if (input.parent_event_id) {
@@ -182,9 +240,10 @@ app.addHook("onSend", async (request, reply) => {
   if (!request.url.startsWith("/health")) reply.header("Cache-Control", "private, no-store");
 });
 if (process.env.WIKI_WEB_URL) {
-  for (const prefix of ["/docs", "/_next"]) await app.register(proxy, { upstream: process.env.WIKI_WEB_URL, prefix, rewritePrefix: prefix });
+  for (const prefix of ["/docs", "/chat", "/_next"]) await app.register(proxy, { upstream: process.env.WIKI_WEB_URL, prefix, rewritePrefix: prefix });
 } else {
   app.get("/docs", async (_request, reply) => reply.type("text/html; charset=utf-8").send("<h1>Framework Wiki</h1><p>문서 화면을 준비하고 있습니다.</p>"));
+  app.get("/chat", async (_request, reply) => reply.type("text/html; charset=utf-8").send("<h1>Framework Wiki Chat</h1><p>대화 화면을 준비하고 있습니다.</p>"));
 }
 
 app.all("/mcp", async (request, reply) => {

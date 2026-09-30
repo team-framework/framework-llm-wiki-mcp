@@ -303,7 +303,7 @@ export function InsightsDashboard() {
                       <td>{count(item.people)} / {count(item.active_people_denominator)}</td>
                       <td>{percent(item.adoption_rate) ?? '표본 없음'}</td>
                       <td>{count(item.errors)}</td>
-                      <td>{['web.document_view','web.search_open','web.citation_open'].includes(item.feature) ? '측정 대상 아님' : <>{item.p50_ms === null ? '표본 없음' : `${count(item.p50_ms)} ms`} / {item.p95_ms === null ? (item.p95_status === 'insufficient_samples' ? '표본 부족' : '표본 없음') : `${count(item.p95_ms)} ms`}</>}</td>
+                      <td>{item.p95_status === 'not_applicable' || ['web.document_view','web.search_open','web.citation_open'].includes(item.feature) ? '측정 대상 아님' : <>{item.p50_ms === null ? '표본 없음' : `${count(item.p50_ms)} ms`} / {item.p95_ms === null ? (item.p95_status === 'insufficient_samples' ? '표본 부족' : '표본 없음') : `${count(item.p95_ms)} ms`}</>}</td>
                       <td>{item.feature.includes('search') ? `${count(item.no_results ?? 0)} / ${count(item.truncated ?? 0)}` : '—'}</td>
                     </tr>
                   ))}
