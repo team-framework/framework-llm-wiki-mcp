@@ -51,6 +51,10 @@ test("service retrieval is measured separately and cannot read statistics or sub
     const service = { authorization: `Bearer ${process.env.WIKI_SERVICE_KEY}` };
     assert.equal((await f.app.inject({ method: "GET", url: "/api/context?q=" + encodeURIComponent("검색"), headers: service })).statusCode, 200);
     const rows = f.rows(); assert.equal(rows[0].feature, "discord.context"); assert.equal(rows[0].actor_kind, "service"); assert.equal(rows[0].client, "discord");
+    const mcp = await f.app.inject({ method: "POST", url: "/mcp", headers: { ...service, accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-03-26" },
+      payload: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_context", arguments: { query: "검색" } } } });
+    assert.equal(mcp.statusCode, 200);
+    const mcpEvent = f.rows()[1]; assert.equal(mcpEvent.feature, "mcp.get_context"); assert.equal(mcpEvent.actor_kind, "service"); assert.equal(mcpEvent.client, "discord");
     assert.equal((await f.app.inject({ method: "GET", url: "/api/measurements", headers: service })).statusCode, 401);
     assert.equal((await f.app.inject({ method: "GET", url: "/api/product-feedback", headers: service })).statusCode, 401);
     assert.equal((await f.app.inject({ method: "POST", url: "/api/feedback", headers: service, payload: {} })).statusCode, 401);

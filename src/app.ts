@@ -32,7 +32,7 @@ if (process.env.WIKI_MEASUREMENT_PATH && process.env.WIKI_MEASUREMENT_SECRET) {
 }
 const measurements = measurementStore ? new WikiMeasurements(measurementStore, wiki) : null;
 const chatHistory = process.env.WIKI_CHAT_PATH ? new ChatHistoryStore(process.env.WIKI_CHAT_PATH) : null;
-const actor = (request: FastifyRequest, client: MeasurementActor["client"]): MeasurementActor => auth.authorizeServiceRead(request)
+const actor = (request: FastifyRequest, client: MeasurementActor["client"]): MeasurementActor => auth.authorizeServiceRead(request) || auth.authorizeServiceMcpRead(request)
   ? { identity: "wiki-discord-service", kind: "service", client: "discord" }
   : { identity: auth.identity(request)!, kind: "person", client };
 const measure = async <T>(request: FastifyRequest, client: MeasurementActor["client"], feature: string, task: () => Promise<T>) =>
@@ -58,14 +58,14 @@ app.setErrorHandler((error, _request, reply) => {
   reply.code(500).send({ error: "request_failed", message: "요청을 처리하지 못했습니다." });
 });
 
-app.addHook("onRequest", async (request, reply) => {
+app.addHook("preValidation", async (request, reply) => {
   const pathname = request.url.split("?")[0];
   if (pathname === "/health" || pathname.startsWith("/auth/github/") || pathname.startsWith("/.well-known/") || pathname.startsWith("/oauth/")) return;
   const origin = request.headers.origin;
   if (origin && allowedOrigins.size > 0 && !allowedOrigins.has(origin)) {
     return reply.code(403).send({ error: "Origin is not allowed." });
   }
-  if (!auth.authorizeServiceRead(request) && !(await auth.authorize(request))) {
+  if (!auth.authorizeServiceRead(request) && !auth.authorizeServiceMcpRead(request) && !(await auth.authorize(request))) {
     if ((pathname === "/" || pathname === "/docs" || pathname.startsWith("/docs/") || pathname === "/chat" || pathname.startsWith("/chat/")) && !request.headers.authorization) return auth.startLogin(reply);
     return auth.rejectResourceRequest(reply);
   }
