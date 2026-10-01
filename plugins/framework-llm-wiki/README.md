@@ -2,6 +2,8 @@
 
 기존 Wiki MCP와 Wiki Web을 연결하는 비공개 플러그인입니다.
 
+팀원은 [설치·GitHub 인증·사용 안내](https://github.com/team-framework/framework-llm-wiki-mcp/blob/main/docs/team-setup.md)를 따라 자신의 계정에 등록할 수 있습니다.
+
 ## 사용
 
 플러그인을 설치하고 호스트의 연결 화면에서 팀 GitHub 계정으로 로그인합니다. `team-framework`의 활성 Member 또는 admin이 사용할 수 있습니다. OAuth 인증 정보는 호스트와 기존 서버가 관리합니다.
