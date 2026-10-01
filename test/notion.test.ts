@@ -15,6 +15,8 @@ function fixture() {
     assert.equal((init?.headers as Record<string, string>)["Notion-Version"], "2026-03-11"); assert.equal(init?.redirect, "error");
     if (retries-- > 0) return new Response("provider-private-token", { status: 429, headers: { "Retry-After": "300" } });
     if (!allowed && endpoint.includes(child)) return new Response("provider-private-token", { status: 404 });
+    if (endpoint === `/v1/blocks/${root}/children`) return Response.json({ results: [{ id: child, type: "child_page" }], has_more: false });
+    if (endpoint === `/v1/blocks/${child}/children`) return Response.json({ results: [], has_more: false });
     if (endpoint === "/v1/search") return Response.json({ results: [entity(outside), entity(root), entity(child)], has_more: false });
     if (endpoint === `/v1/databases/${database}` || endpoint === `/v1/data_sources/${database}`) return Response.json({ id: database, parent: { type: "page_id", page_id: root } });
     if (endpoint === `/v1/pages/${root}`) return Response.json(entity(root));

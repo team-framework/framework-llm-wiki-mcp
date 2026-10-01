@@ -26,10 +26,9 @@ const vector = process.env.QDRANT_URL && process.env.EMBEDDING_URL ? new WikiVec
 if (vector) wiki.setSemanticSearch((query, options) => vector.search(query, options));
 const notion = new NotionService(options.notion ?? { token: process.env.NOTION_TOKEN,
   rootIds: (process.env.NOTION_ROOT_PAGE_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean) });
-const maxNotionPages = Number(process.env.NOTION_INDEX_MAX_PAGES ?? 100);
 const notionSyncMs = Number(process.env.NOTION_SYNC_INTERVAL_MS ?? 600_000);
-if (!Number.isInteger(maxNotionPages) || maxNotionPages < 1 || maxNotionPages > 1000 || !Number.isInteger(notionSyncMs) || notionSyncMs < 60_000) throw new Error("Invalid Notion index limits");
-const notionIndex = new NotionIndex(notion, maxNotionPages);
+if (!Number.isInteger(notionSyncMs) || notionSyncMs < 60_000) throw new Error("Invalid Notion index limits");
+const notionIndex = new NotionIndex(notion, process.env.NOTION_INDEX_PATH);
 const notionVector = notion.enabled && process.env.QDRANT_URL && process.env.EMBEDDING_URL ? new WikiVectorIndex(notionIndex, {
   qdrantUrl: process.env.QDRANT_URL, embeddingUrl: process.env.EMBEDDING_URL,
   cacheDir: `${process.env.EMBEDDING_CACHE_DIR ?? "/tmp/framework-wiki-embeddings"}/notion`, alias: "framework_notion"

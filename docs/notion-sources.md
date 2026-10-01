@@ -32,7 +32,13 @@ python3 deploy/configure-notion.py --env .env
 
 ## 본문 검색
 
-설정된 연결이 있으면 시작 시와 기본 10분 간격으로 페이지를 수집한다. 기본 수집 상한은 100개이며 `NOTION_INDEX_MAX_PAGES`로 조절한다. `/api/status`의 `notion.index.truncated`로 수집 상한 도달 여부를 확인한다. 갱신 중에는 이전 수집 결과를 검색 후보로 사용하고, 답변에 넣기 전에 원문 접근 권한과 변경 내용을 다시 읽는다. 삭제되거나 접근 권한을 잃은 후보는 제외한다.
+설정된 연결이 있으면 시작 시와 기본 10분 간격으로 Framework 상위 페이지의 하위 페이지, 중첩 블록, 데이터베이스의 데이터 소스와 행을 끝까지 순회한다. 페이지 수 상한은 없다. 목록 응답의 `next_cursor`를 따라 마지막 결과까지 가져온다. Notion 데이터 소스의 쿼리별 10,000행 제한에 걸리면 생성 시각 구간을 나눠 조회한다. 1ms 구간에도 제한을 초과하면 오류와 누락 상태를 표시한다. Notion Wiki 데이터 소스 안의 하위 데이터 소스도 순회한다. [제목 검색은 전체 목록을 보장하지 않으므로](https://developers.notion.com/reference/search-optimizations-and-limitations) 수집에 사용하지 않는다. `NOTION_INDEX_MAX_PAGES`는 더 이상 사용하지 않는다.
+
+본문은 새 페이지와 수정 시각이 바뀐 페이지만 다시 가져온다. 본문이 일부 누락된 페이지는 다음 갱신 때 다시 시도한다. 페이지와 상위 경로의 권한은 재확인하며, 삭제되거나 접근 범위 밖으로 이동한 문서는 제외한다. 갱신이 겹치면 진행 중인 수집을 기다린다.
+
+`NOTION_INDEX_PATH`를 설정하면 본문과 수정 시각을 권한 600의 파일에 저장한다. Compose는 `/cache/notion/index.json`을 사용한다. 25페이지마다 진행 내용을 저장해 재시작 후 받은 본문을 재사용한다. 토큰이나 허용 상위 페이지가 바뀌면 이전 캐시를 사용하지 않는다. Notion 원문은 Git 위키에 넣지 않는다.
+
+`/api/status`의 `notion.index`에서 수집 상태와 `discovered`, `fetched`, `reused`, `failed`, `removed`, `partial_content`를 확인한다. 접근 실패나 원문 누락이 있으면 `truncated`가 참이다. 갱신 중에는 확보한 문서를 검색 후보로 사용하고, 답변에 넣기 전에 원문 접근 권한과 변경 내용을 다시 읽는다.
 
 본문 키워드 검색과 별도 `framework_notion` Qdrant 인덱스를 사용한다. Vector 서비스가 없으면 키워드 검색을 사용한다. 인덱스가 준비되지 않았을 때는 제목 검색을 사용하고 `notion_title_search_only`를 반환한다. 토큰이 없으면 기존 위키 조회와 답변 경로를 사용한다.
 

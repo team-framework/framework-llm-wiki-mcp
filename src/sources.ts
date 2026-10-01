@@ -1,7 +1,10 @@
 import { NotionError, NotionService, notionLinks, type NotionPage } from "./notion.js";
-import { parseSections, queryTerms, sectionBlocks } from "./sections.js";
+import { hashContent, parseSections, queryTerms, sectionBlocks } from "./sections.js";
 import type { ContextOptions, Note, SemanticSearchProvider, WikiService } from "./wiki.js";
 import type { Evidence, WikiContext } from "./chat.js";
+import { createHash, randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 
 export type SourceMode = "wiki" | "notion" | "all";
 export class NotionIndex {
@@ -10,29 +13,70 @@ export class NotionIndex {
   private state = "starting";
   private updatedAt: string | null = null;
   private truncated = false;
+  private progress = { discovered: 0, fetched: 0, reused: 0, failed: 0, removed: 0, partial_content: 0 };
+  private error: string | null = null;
+  private restored = false;
   private semantic?: SemanticSearchProvider;
-  constructor(readonly notion: NotionService, readonly maxPages = 250) {}
+  constructor(readonly notion: NotionService, readonly cachePath?: string) {}
   setSemanticSearch(provider: SemanticSearchProvider) { this.semantic = provider; }
-  status() { return { state: this.notion.enabled ? this.state : "disabled", pages: this.pages.size, updated_at: this.updatedAt, truncated: this.truncated }; }
+  status() { return { state: this.notion.enabled ? this.state : "disabled", pages: this.pages.size, updated_at: this.updatedAt, truncated: this.truncated, ...this.progress, error: this.error }; }
+  private identity() { return createHash("sha256").update(JSON.stringify([...this.notion.roots].sort()) + "\0" + this.notion.options.token).digest("hex"); }
+  private async restore() {
+    if (this.restored) return; this.restored = true;
+    if (!this.cachePath) return;
+    try {
+      const saved = JSON.parse(await fs.readFile(this.cachePath, "utf8"));
+      if (saved.version !== 1 || saved.identity !== this.identity() || !Array.isArray(saved.pages)) return;
+      for (const page of saved.pages) {
+        if (typeof page.id === "string" && /^[a-f0-9]{32}$/.test(page.id) && typeof page.content === "string" && typeof page.title === "string" && typeof page.last_edited_time === "string" && typeof page.retrieved_at === "string" && typeof page.truncated === "boolean" && page.content_hash === hashContent(page.content) && Array.isArray(page.unknown_block_ids)) this.pages.set(page.id, page);
+      }
+      this.updatedAt = saved.updated_at ?? null;
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") this.error = "notion_cache_unavailable"; }
+  }
+  private async save() {
+    if (!this.cachePath) return;
+    await fs.mkdir(path.dirname(this.cachePath), { recursive: true, mode: 0o700 });
+    const temporary = `${this.cachePath}.${randomUUID()}.tmp`;
+    try {
+      await fs.writeFile(temporary, JSON.stringify({ version: 1, identity: this.identity(), updated_at: this.updatedAt, pages: [...this.pages.values()] }), { mode: 0o600, flag: "wx" });
+      await fs.rename(temporary, this.cachePath);
+    } finally { await fs.rm(temporary, { force: true }); }
+  }
   async listNotes(): Promise<Note[]> {
     return [...this.pages.values()].map((page) => ({ path: `notion/${page.id}`, title: page.title, content: page.content, body: page.content, metadata: { source_type: "notion", verification: "unverified" }, links: [], note_hash: page.content_hash }));
   }
   sync(): Promise<void> {
     if (!this.notion.enabled) return Promise.resolve();
     if (this.syncing) return this.syncing;
-    this.syncing = this.refresh().catch(() => { this.pages.clear(); this.state = "unavailable"; }).finally(() => { this.syncing = null; });
+    this.syncing = this.refresh().catch((error) => {
+      this.state = "unavailable"; this.truncated = true;
+      this.error = error instanceof NotionError ? error.code : "notion_index_unavailable";
+    }).finally(() => { this.syncing = null; });
     return this.syncing;
   }
   private async refresh() {
-    this.state = "indexing";
-    const found = await this.notion.search("", this.maxPages);
+    await this.restore(); this.state = "indexing"; this.error = null; this.truncated = true;
+    this.progress = { discovered: 0, fetched: 0, reused: 0, failed: 0, removed: 0, partial_content: 0 };
     const next = new Map<string, NotionPage>();
-    for (const item of found.results) {
-      try { next.set(item.id, await this.notion.read(item.id)); }
-      catch (error) { if (!(error instanceof NotionError && error.status === 404)) throw error; }
+    const initialIds = new Set(this.pages.keys());
+    for await (const item of this.notion.scanPages(() => { this.progress.failed++; })) {
+      this.progress.discovered++;
+      try {
+        const previous = this.pages.get(item.id); const page = await item.load(previous);
+        next.set(item.id, page); this.pages.set(item.id, page);
+        if (previous && !previous.truncated && previous.last_edited_time === page.last_edited_time) this.progress.reused++;
+        else this.progress.fetched++;
+        if (page.truncated) this.progress.partial_content++;
+      } catch (error) {
+        this.progress.failed++; this.pages.delete(item.id);
+        if (error instanceof NotionError && ["notion_auth_failed", "notion_closed"].includes(error.code)) throw error;
+      }
+      // A private checkpoint avoids fetching completed bodies again after restart.
+      if (this.progress.discovered % 25 === 0) await this.save();
     }
-    this.pages = next; this.truncated = found.truncated;
-    this.updatedAt = new Date().toISOString(); this.state = "ready";
+    this.progress.removed = [...initialIds].filter((id) => !next.has(id)).length;
+    this.pages = next; this.truncated = this.progress.failed > 0 || this.progress.partial_content > 0;
+    this.updatedAt = new Date().toISOString(); await this.save(); this.state = "ready";
   }
   async candidates(query: string, limit = 5) {
     const terms = queryTerms(query); const scores = new Map<string, number>();
