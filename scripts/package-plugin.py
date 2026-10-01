@@ -14,6 +14,7 @@ SKILLS = {"wiki-answer", "wiki-metrics", "wiki-change"}
 ENDPOINT = "https://framework-wiki.chaeyn.com/mcp"
 ALLOWED = {
     "plugin.json", "mcp.json", "README.md", "assets/framework.png", "assets/composer-icon.png",
+    "assets/wiki-web-preview.jpg",
     "skills/wiki-answer/SKILL.md", "skills/wiki-answer/references/retrieval.md",
     "skills/wiki-metrics/SKILL.md", "skills/wiki-change/SKILL.md",
 }
@@ -41,12 +42,15 @@ def validate(source):
     require(re.fullmatch(r"\d+\.\d+\.\d+", manifest.get("version", "")), "A semantic version is required")
     require(not {"skills", "apps", "mcpServers", "interface"} & manifest.keys(), "Use portable manifest fields")
     presentation = manifest["extensions"]["com.openai"]["interface"]
-    require(0 < len(presentation["shortDescription"]) <= 30, "Subtitle must be at most 30 characters")
+    require(isinstance(presentation["shortDescription"], str) and presentation["shortDescription"].strip(), "A nonempty subtitle is required")
     prompts = presentation["defaultPrompt"]
     require(isinstance(prompts, str) or (isinstance(prompts, list) and 1 <= len(prompts) <= 3 and all(isinstance(p, str) for p in prompts)), "Invalid default prompts")
     require(presentation["capabilities"] == ["Read"], "The connected MCP is read-only")
-    for field in ("logo", "composerIcon"):
+    for field in ("logo", "logoDark", "composerIcon", "composerIconDark"):
         require(presentation[field].startswith("./") and presentation[field][2:] in files, f"Missing contained {field} asset")
+    require(presentation["screenshots"] == ["./assets/wiki-web-preview.jpg"], "The Wiki Web preview must be a contained screenshot")
+    preview = files["assets/wiki-web-preview.jpg"]
+    require(preview.startswith(b"\xff\xd8") and preview.endswith(b"\xff\xd9") and len(preview) <= 5 * 1024 * 1024, "Invalid or oversized JPEG preview")
 
     mcp = json.loads(files["mcp.json"])
     require(mcp == {
@@ -71,7 +75,7 @@ def validate(source):
 
     credential = re.compile(r"-----BEGIN .*PRIVATE KEY-----|(?:gh[pousr]_|github_pat_|sk-(?:proj-|svcacct-)?)[A-Za-z0-9_-]{20,}")
     for name, data in files.items():
-        if not name.endswith(".png"):
+        if not name.endswith((".png", ".jpg")):
             require(not credential.search(data.decode("utf-8")), f"Credential-like material found in {name}")
     return manifest, files
 

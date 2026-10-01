@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "framework-llm-wiki",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Search Framework and InnoLive knowledge, read exact source sections, check recorded metrics, and prepare reviewable wiki changes using the existing authenticated Wiki MCP and Wiki Web.",
   "author": { "name": "Framework", "url": "https://github.com/team-framework" },
   "homepage": "https://framework-wiki.chaeyn.com/docs",
@@ -11,14 +11,17 @@
     "com.openai": {
       "interface": {
         "displayName": "Framework LLM Wiki",
-        "shortDescription": "팀 위키 검색과 근거 확인",
+        "shortDescription": "Framework Wiki 검색과 프로젝트의 근거 확인을 위한 Plugin",
         "longDescription": "Framework와 InnoLive의 기술 문서, 결정, 담당자, 일정을 검색합니다. 필요한 Markdown 섹션부터 읽고 검증 상태와 원문 링크를 답변에 붙입니다. 현행 수치와 위키 동기화 상태를 확인하고, 문서 변경안을 기존 Wiki Web에서 검토하도록 안내합니다. 팀 GitHub 로그인이 필요합니다.",
         "developerName": "Framework",
         "category": "Productivity",
         "capabilities": ["Read"],
         "websiteURL": "https://framework-wiki.chaeyn.com/docs",
         "logo": "./assets/framework.png",
+        "logoDark": "./assets/framework.png",
         "composerIcon": "./assets/composer-icon.png",
+        "composerIconDark": "./assets/composer-icon.png",
+        "screenshots": ["./assets/wiki-web-preview.jpg"],
         "brandColor": "#1a1a1a",
         "brandColorDark": "#f5f5f5",
         "defaultPrompt": [
