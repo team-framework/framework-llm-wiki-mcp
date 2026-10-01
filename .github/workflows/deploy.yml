@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
+          # Reuse this persistent runner's local npm cache without remote restore/save.
 
       - name: Install dependencies
         run: npm ci
