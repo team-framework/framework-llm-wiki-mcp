@@ -6,13 +6,13 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { buildApp } from "../src/app.js";
 import { GitHubAuth } from "../src/auth.js";
 
-async function setup(auth: boolean) {
+async function setup(auth: boolean, options: Parameters<typeof buildApp>[0] = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "wiki-api-test-"));
   await writeFile(path.join(root, "연결 방법.md"), "# 연결 방법\n\n## 확인\n연결 상태를 확인한다.\n");
   Object.assign(process.env, { WIKI_ROOT: root, AUTH_MODE: auth ? "github" : "disabled", GITHUB_CLIENT_ID: "test-client", GITHUB_CLIENT_SECRET: "test-secret", SESSION_SECRET: "test-session-secret",
     PUBLIC_BASE_URL: "https://wiki.example.com", WIKI_SERVICE_KEY: "readonly-service-key-at-least-32-chars" });
   for (const key of ["QDRANT_URL", "EMBEDDING_URL", "WIKI_WEB_URL", "HERMES_WIKI_URL", "HERMES_WIKI_KEY"]) delete process.env[key];
-  const app = await buildApp();
+  const app = await buildApp(options);
   return { app, cleanup: async () => { await app.close(); await rm(root, { recursive: true, force: true }); } };
 }
 
@@ -30,6 +30,33 @@ test("private API denies anonymous access and redirects browser documents to Git
   } finally { await f.cleanup(); }
 });
 
+test("configured Notion HTTP and MCP reads share service authentication and root boundaries", async () => {
+  const root = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", outside = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const f = await setup(true, { notionIndex: false, notion: { token: "private-notion-token", rootIds: [root], intervalMs: 0, fetchImpl: async (url) => {
+    const endpoint = new URL(String(url)).pathname;
+    if (endpoint.endsWith("/markdown")) return Response.json({ markdown: "# FaceSwapS\n\n자체 모델 실험 결과\n", truncated: false, unknown_block_ids: [] });
+    if (endpoint === "/v1/search") return Response.json({ results: [], has_more: false });
+    return Response.json({ id: endpoint.split("/").at(-1), parent: { type: "workspace", workspace: true }, properties: { title: { type: "title", title: [{ plain_text: "FaceSwapS" }] } } });
+  } } });
+  const headers = { authorization: `Bearer ${process.env.WIKI_SERVICE_KEY}` };
+  try {
+    assert.equal((await f.app.inject({ method: "GET", url: `/api/notion/page?id=${root}` })).statusCode, 401);
+    const read = await f.app.inject({ method: "GET", url: `/api/notion/page?id=${root}`, headers });
+    assert.equal(read.statusCode, 200); assert.equal(read.json().url, `https://app.notion.com/p/${root}`);
+    assert.equal(read.headers["cache-control"], "private, no-store"); assert.match(read.json().content, /자체 모델/);
+    const rejected = await f.app.inject({ method: "GET", url: `/api/notion/page?id=${outside}`, headers });
+    assert.equal(rejected.statusCode, 404); assert.equal(rejected.json().error, "notion_outside_roots");
+    const invalid = await f.app.inject({ method: "GET", url: "/api/notion/page?id=https://evil.example", headers });
+    assert.equal(invalid.statusCode, 400);
+    const mcp = await f.app.inject({ method: "POST", url: "/mcp", headers: { ...headers, accept: "application/json, text/event-stream" },
+      payload: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read_notion_page", arguments: { id: root } } } });
+    assert.equal(mcp.statusCode, 200);
+    const result = JSON.parse(mcp.body.match(/^data: (.+)$/m)?.[1] ?? mcp.body);
+    assert.match(result.result.content[0].text, /자체 모델/);
+    assert.ok(!JSON.stringify([read.json(), rejected.json(), result]).includes("private-notion-token"));
+  } finally { await f.cleanup(); }
+});
+
 test("service credential completes MCP read calls but cannot use other methods or private APIs", async () => {
   const f = await setup(true);
   try {
@@ -44,7 +71,7 @@ test("service credential completes MCP read calls but cannot use other methods o
     const list = await call(3, "tools/list");
     assert.equal(list.statusCode, 200);
     assert.deepEqual(result(list.body).result.tools.map((tool: { name: string }) => tool.name).sort(), [
-      "get_context", "get_current_metrics", "get_note_outline", "get_wiki_status", "read_note", "read_sections", "search_wiki"
+      "get_context", "get_current_metrics", "get_note_outline", "get_sources_context", "get_wiki_status", "read_note", "read_notion_page", "read_sections", "search_notion", "search_wiki"
     ]);
     const read = await call(4, "tools/call", { name: "read_note", arguments: { path: "연결 방법.md" } });
     assert.equal(read.statusCode, 200);

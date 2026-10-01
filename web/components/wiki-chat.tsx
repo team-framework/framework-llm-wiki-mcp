@@ -149,7 +149,8 @@ function withConversation(href: string, conversationId?: string) {
 
 function sourceLinkLabel(source: Citation) {
   const title = friendlyDocumentTitle(source.title, source.path);
-  return source.section ? title + ' · ' + source.section : title;
+  const label = source.section ? title + ' · ' + source.section : title;
+  return source.path.startsWith('notion/') ? 'Notion · ' + label : label;
 }
 
 function dateLabel(timestamp: number) {
@@ -292,7 +293,7 @@ function ChatMessageView({ message, conversationId, onFeedback }: {
             );
             const onClick = () => recordWebEvent({
                   feature: 'web.citation_open',
-                  path: source.path,
+                  ...(!source.path.startsWith('notion/') ? { path: source.path } : {}),
                   parentEventId: message.measurementId,
                 });
             return external ? (

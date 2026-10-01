@@ -29,7 +29,7 @@
 저장소 루트에서 실행합니다.
 
 ```bash
-python3 scripts/package-plugin.py --output /tmp/framework-llm-wiki-0.1.2.zip
+python3 scripts/package-plugin.py --output /tmp/framework-llm-wiki-0.1.3.zip
 ```
 
 ZIP은 플러그인 디렉터리 밖에 생성합니다. manifest, 스킬 이름, 아이콘 경로, 허용 파일, symlink, 인증 정보 포함 여부를 검사한 뒤 패키징합니다. 생성한 ZIP을 Plugin Creator의 `create_plugin`에 전달해 계정에 저장할 수 있습니다. 이후에는 저장된 정확한 plugin ID와 current release ID로 `update_plugin`을 사용합니다.

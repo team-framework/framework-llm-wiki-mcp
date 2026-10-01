@@ -55,7 +55,7 @@ export class GitHubAuth {
 
   authorizeServiceRead(request: FastifyRequest): boolean {
     if (request.method !== "GET") return false;
-    if (!["/api/context", "/api/outline", "/api/note"].includes(request.url.split("?")[0])) return false;
+    if (!["/api/context", "/api/outline", "/api/note", "/api/notion/search", "/api/notion/page"].includes(request.url.split("?")[0])) return false;
     return this.hasServiceCredential(request);
   }
 
@@ -68,7 +68,7 @@ export class GitHubAuth {
     if (message.method !== "tools/call" || !message.params || typeof message.params !== "object" || Array.isArray(message.params)) return false;
     const name = (message.params as { name?: unknown }).name;
     // Review additions here before exposing new MCP tools to the service credential.
-    return typeof name === "string" && ["search_wiki", "read_note", "get_context", "get_note_outline", "read_sections", "get_current_metrics", "get_wiki_status"].includes(name);
+    return typeof name === "string" && ["search_wiki", "read_note", "get_context", "get_note_outline", "read_sections", "get_current_metrics", "get_wiki_status", "search_notion", "read_notion_page", "get_sources_context"].includes(name);
   }
 
   identity(request: FastifyRequest): string | null {

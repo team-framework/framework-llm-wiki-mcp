@@ -9,11 +9,13 @@ import { GitHubAuth } from "./auth.js";
 import { createMcpServer } from "./mcp.js";
 import { WikiVectorIndex } from "./vector.js";
 import { WikiService } from "./wiki.js";
+import { NotionError, NotionService, type NotionOptions } from "./notion.js";
+import { NotionIndex, SourceContext } from "./sources.js";
 import { WikiUpdates, UpdateError, isUpdateCommand } from "./wiki-update.js";
 import { MeasurementStore, WikiMeasurements, WEB_INTERACTION_FEATURES, type MeasurementActor } from "./measurements.js";
 import type { FastifyRequest, FastifyReply } from "fastify";
 
-export async function buildApp() {
+export async function buildApp(options: { notion?: NotionOptions; notionIndex?: boolean } = {}) {
 const wikiRoot = process.env.WIKI_ROOT ?? "/wiki";
 const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean));
 const wiki = new WikiService(wikiRoot);
@@ -22,6 +24,18 @@ const vector = process.env.QDRANT_URL && process.env.EMBEDDING_URL ? new WikiVec
   cacheDir: process.env.EMBEDDING_CACHE_DIR ?? "/tmp/framework-wiki-embeddings"
 }) : null;
 if (vector) wiki.setSemanticSearch((query, options) => vector.search(query, options));
+const notion = new NotionService(options.notion ?? { token: process.env.NOTION_TOKEN,
+  rootIds: (process.env.NOTION_ROOT_PAGE_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean) });
+const maxNotionPages = Number(process.env.NOTION_INDEX_MAX_PAGES ?? 100);
+const notionSyncMs = Number(process.env.NOTION_SYNC_INTERVAL_MS ?? 600_000);
+if (!Number.isInteger(maxNotionPages) || maxNotionPages < 1 || maxNotionPages > 1000 || !Number.isInteger(notionSyncMs) || notionSyncMs < 60_000) throw new Error("Invalid Notion index limits");
+const notionIndex = new NotionIndex(notion, maxNotionPages);
+const notionVector = notion.enabled && process.env.QDRANT_URL && process.env.EMBEDDING_URL ? new WikiVectorIndex(notionIndex, {
+  qdrantUrl: process.env.QDRANT_URL, embeddingUrl: process.env.EMBEDDING_URL,
+  cacheDir: `${process.env.EMBEDDING_CACHE_DIR ?? "/tmp/framework-wiki-embeddings"}/notion`, alias: "framework_notion"
+}) : null;
+if (notionVector) notionIndex.setSemanticSearch((query, filters) => notionVector.search(query, filters));
+const sources = new SourceContext(wiki, notion, notionIndex);
 const auth = new GitHubAuth();
 auth.assertConfigured();
 const app = Fastify({ logger: { level: "warn", redact: ["req.headers.authorization", "req.headers.cookie"] }, disableRequestLogging: true, bodyLimit: 100_000 });
@@ -33,7 +47,7 @@ if (process.env.WIKI_MEASUREMENT_PATH && process.env.WIKI_MEASUREMENT_SECRET) {
 }
 const measurements = measurementStore ? new WikiMeasurements(measurementStore, wiki) : null;
 const chatHistory = process.env.WIKI_CHAT_PATH ? new ChatHistoryStore(process.env.WIKI_CHAT_PATH) : null;
-const updates = chatHistory ? new WikiUpdates(chatHistory.db, wiki) : null;
+const updates = chatHistory ? new WikiUpdates(chatHistory.db, wiki, undefined, (query) => sources.getContext(query, { sources: "notion", maxChars: 12000, limit: 3 })) : null;
 const actor = (request: FastifyRequest, client: MeasurementActor["client"]): MeasurementActor => auth.authorizeServiceRead(request) || auth.authorizeServiceMcpRead(request)
   ? { identity: "wiki-discord-service", kind: "service", client: "discord" }
   : { identity: auth.identity(request)!, kind: "person", client };
@@ -48,10 +62,19 @@ const sameOrigin = (request: FastifyRequest, reply: FastifyReply) => {
 const measurementPruneTimer = measurementStore ? setInterval(() => { try { measurementStore?.prune(); } catch { app.log.warn("Wiki measurement retention cleanup is unavailable."); } }, 60 * 60_000) : null;
 measurementPruneTimer?.unref();
 app.addHook("onClose", async () => { if (measurementPruneTimer) clearInterval(measurementPruneTimer); measurementStore?.close(); chatHistory?.close(); });
-const chat = new WikiChat((query) => wiki.getContext(query, { maxChars: 12_000, limit: 8 }));
+const chat = new WikiChat((query, input) => sources.getContext(
+  [...(input?.history.filter((message) => message.role === "user").slice(-3).map((message) => message.content) ?? []), query].join("\n").slice(-4000),
+  { maxChars: 12_000, limit: 8 }));
+let notionTimer: NodeJS.Timeout | undefined;
+if (notion.enabled && (options.notionIndex ?? process.env.NOTION_INDEX_ENABLED !== "false")) {
+  const syncNotion = async () => { await notionIndex.sync(); if (notionIndex.status().state === "ready") await notionVector?.sync(); };
+  void syncNotion(); notionTimer = setInterval(() => { void syncNotion(); }, notionSyncMs); notionTimer.unref();
+}
+app.addHook("onClose", async () => { clearInterval(notionTimer); notion.close(); });
 await app.register(formbody);
 app.setErrorHandler((error, _request, reply) => {
   const failure = error as Error & { code?: string; statusCode?: number };
+  if (error instanceof NotionError) return reply.code(error.status).send({ error: error.code, message: "Notion 문서의 연결과 접근 범위를 확인해 주세요." });
   if (error instanceof UpdateError) return reply.code(error.status).send({ error: error.code, message: error.message });
   if (failure.code === "ENOENT") return reply.code(404).send({ error: "note_not_found", message: "문서를 찾을 수 없습니다." });
   if (error instanceof z.ZodError || /Invalid wiki|Invalid.*path|Invalid section cursor|outside.*root/i.test(failure.message)) {
@@ -93,7 +116,17 @@ app.post("/oauth/token", async (request, reply) => auth.exchangeToken(request, r
 app.get("/auth/github/login", async (_request, reply) => auth.startLogin(reply));
 app.get("/auth/github/callback", async (request, reply) => auth.finishLogin(request, reply));
 app.post("/auth/github/logout", async (_request, reply) => auth.logout(reply));
-app.get("/api/status", async () => ({ ...(await wiki.status()), vector: vector?.status() ?? { state: "disabled" } }));
+app.get("/api/status", async () => ({ ...(await wiki.status()), vector: vector?.status() ?? { state: "disabled" }, notion: { ...notion.status(), index: notionIndex.status(), vector: notionVector?.status() ?? { state: "disabled" } } }));
+app.get("/api/notion/search", async (request, reply) => {
+  reply.header("Cache-Control", "private, no-store");
+  const query = z.object({ q: z.string().max(4000).default(""), limit: z.coerce.number().int().min(1).max(50).default(10) }).parse(request.query);
+  return notion.search(query.q, query.limit);
+});
+app.get("/api/notion/page", async (request, reply) => {
+  reply.header("Cache-Control", "private, no-store");
+  const query = z.object({ id: z.string().min(1).max(2000), max_chars: z.coerce.number().int().min(1000).max(128000).default(20000), start_block: z.coerce.number().int().min(0).default(0), subtree_id: z.string().optional(), expected_hash: z.string().regex(/^[a-f0-9]{64}$/).optional() }).parse(request.query);
+  return notion.readBounded(query.id, query.max_chars, query.start_block, query.subtree_id, query.expected_hash);
+});
 app.get("/api/search", async (request, reply) => {
   const query = z.object({ q: z.string().max(4000).default(""), domain: z.string().optional(), owner: z.string().optional(), verification: z.string().optional(), include_history: z.string().optional() }).parse(request.query);
   const result = await measure(request, "web", "web.search", () => wiki.search(query.q, {
@@ -122,9 +155,11 @@ app.get("/api/outline", async (request) => {
 app.get("/api/context", async (request) => {
   const query = z.object({ q: z.string().min(1).max(4000), max_chars: z.coerce.number().int().min(1000).max(128000).optional(),
     domain: z.string().optional(), owner: z.string().optional(), verification: z.string().optional(),
-    include_history: z.enum(["true", "false"]).optional(), limit: z.coerce.number().int().min(1).max(50).optional(), cursor: z.string().max(64000).optional()
+    include_history: z.enum(["true", "false"]).optional(), limit: z.coerce.number().int().min(1).max(50).optional(), cursor: z.string().max(64000).optional(),
+    sources: z.enum(["wiki", "notion", "all"]).default("wiki")
   }).parse(request.query);
-  const task = () => wiki.getContext(query.q, { maxChars: query.max_chars ?? 12000, domain: query.domain, owner: query.owner,
+  if (query.sources !== "wiki" && query.cursor) throw new NotionError(400, "mixed_source_cursor_unsupported");
+  const task = () => sources.getContext(query.q, { sources: query.sources, maxChars: query.max_chars ?? 12000, domain: query.domain, owner: query.owner,
     verification: query.verification, includeHistory: query.include_history === "true", limit: query.limit, cursor: query.cursor });
   return auth.authorizeServiceRead(request) ? (await measure(request, "discord", "discord.context", task)).value : task();
 });
@@ -273,7 +308,7 @@ app.all("/mcp", async (request, reply) => {
     return reply.code(405).send({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null });
   }
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  const server = createMcpServer(wiki, measurements ? async (feature, task) => (await measure(request, "mcp", feature, task)).value : undefined);
+  const server = createMcpServer(wiki, measurements ? async (feature, task) => (await measure(request, "mcp", feature, task)).value : undefined, { notion, sources });
   await server.connect(transport);
   reply.hijack();
   await transport.handleRequest(request.raw, reply.raw, request.body);
