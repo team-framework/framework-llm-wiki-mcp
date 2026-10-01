@@ -25,6 +25,16 @@ claude mcp login framework-wiki
 
 연결을 해제하려면 `codex mcp logout framework-wiki` 또는 `claude mcp logout framework-wiki`를 실행합니다.
 
+## Plugin
+
+[Framework LLM Wiki Plugin](plugins/framework-llm-wiki/README.md)은 기존 MCP를 연결하고 질문에 필요한 섹션 조회, 현행 수치 확인, 문서 변경안 작성 스킬을 제공합니다. 출처와 변경안 검토는 기존 Wiki Web으로 연결합니다.
+
+```bash
+python3 scripts/package-plugin.py --output /tmp/framework-llm-wiki-0.1.0.zip
+```
+
+생성한 ZIP을 Plugin Creator로 계정에 저장하고 설치할 수 있습니다. 팀 GitHub OAuth 연결은 호스트의 연결 화면에서 진행합니다.
+
 ## 로컬 실행
 
 ```bash
