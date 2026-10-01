@@ -27,10 +27,12 @@ claude mcp login framework-wiki
 
 ## Plugin
 
+[팀원용 설치·인증·사용 안내](docs/team-setup.md)를 따라 각자의 계정에 등록할 수 있습니다. ChatGPT 웹의 MCP 직접 등록, Codex·Claude Code 연결과 문제 해결도 포함합니다.
+
 [Framework LLM Wiki Plugin](plugins/framework-llm-wiki/README.md)은 기존 MCP를 연결하고 질문에 필요한 섹션 조회, 현행 수치 확인, 문서 변경안 작성 스킬을 제공합니다. 출처와 변경안 검토는 기존 Wiki Web으로 연결합니다.
 
 ```bash
-python3 scripts/package-plugin.py --output /tmp/framework-llm-wiki-0.1.1.zip
+python3 scripts/package-plugin.py --output /tmp/framework-llm-wiki.zip
 ```
 
 생성한 ZIP을 Plugin Creator로 계정에 저장하고 설치할 수 있습니다. 팀 GitHub OAuth 연결은 호스트의 연결 화면에서 진행합니다.
