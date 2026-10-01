@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { WikiChat, ChatError, type ChatInput, type Evidence } from "./chat.js";
+import { WikiChat, ChatError, type ChatInput, type Evidence, type ContextReader } from "./chat.js";
+import { notionLinks } from "./notion.js";
 import { hashContent, parseSections } from "./sections.js";
 import type { WikiService } from "./wiki.js";
 import { WikiGitHub } from "./wiki-github.js";
@@ -29,7 +30,7 @@ export class WikiUpdates {
   private publishing = new Set<string>();
   private proposing = new Set<string>();
   private requests = new Map<string, number[]>();
-  constructor(readonly db: DatabaseSync, readonly wiki: WikiService, readonly github = new WikiGitHub()) {
+  constructor(readonly db: DatabaseSync, readonly wiki: WikiService, readonly github = new WikiGitHub(), readonly references?: ContextReader) {
     db.exec(`CREATE TABLE IF NOT EXISTS wiki_updates (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, identity TEXT NOT NULL, request_id TEXT UNIQUE NOT NULL, proposal TEXT NOT NULL);`);
   }
   get(id: string): UpdateProposal {
@@ -76,13 +77,24 @@ export class WikiUpdates {
       evidence.push(item);
       remaining -= note.content.length;
     }
-    const chat = new WikiChat(async () => ({ evidence, truncated: context.truncated || evidence.length < targets.size }));
+    let referenceNotices: unknown;
+    let referenceTruncated = false;
+    if (this.references && notionLinks(query).length) {
+      const references = await this.references(query);
+      referenceNotices = references.notices;
+      referenceTruncated = Boolean(references.truncated);
+      for (const item of references.evidence.filter((item) => item.source_type === "notion")) {
+        if (item.content.length > remaining || Buffer.byteLength(JSON.stringify({ input: JSON.stringify({ question: input.message, history: input.history, evidence: [...evidence, item] }) })) > 130_000) { referenceTruncated = true; continue; }
+        evidence.push(item); remaining -= item.content.length;
+      }
+    }
+    const chat = new WikiChat(async () => ({ evidence, truncated: context.truncated || referenceTruncated || evidence.filter((item) => item.source_type !== "notion").length < targets.size, notices: referenceNotices }));
     const result = await chat.answer(input, identity, "update");
     let plan: z.infer<typeof modelPlan>;
     try { plan = modelPlan.parse(JSON.parse(result.answer)); }
     catch { throw new ChatError(502, "invalid_update_response", "문서 변경안을 확인하지 못했습니다. 대상과 변경 내용을 구체적으로 적어 주세요."); }
     if (!plan.changes.length) return { clarification: plan.summary };
-    const known = new Map(evidence.map((item) => [item.path, item]));
+    const known = new Map(evidence.filter((item) => item.source_type !== "notion").map((item) => [item.path, item]));
     const changes: UpdateChange[] = [];
     for (const change of plan.changes) {
       if (change.action === "delete" && !/삭제|지워|지우|제거|\bdelete\b|\bremove\b/i.test(query)) throw new UpdateError(400, "delete_not_requested", "삭제할 문서와 이유를 명시해 주세요.");

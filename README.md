@@ -2,6 +2,8 @@
 
 `framework-llm-wiki` 정본을 읽기 전용으로 검색하는 MCP 서버입니다.
 
+팀 Notion 원문도 읽을 수 있습니다. [Notion 연결과 조회 안내](docs/notion-sources.md)를 따라 읽기 전용 연결을 설정하면 MCP와 웹 챗봇에서 함께 조회합니다.
+
 - 문서 수정은 정본 위키 저장소에서 PR로 합니다.
 - 웹 Wiki Agent에서 `/업데이트`로 문서 생성·수정·삭제 변경안을 확인하고 Framework Bot의 Draft PR을 열 수 있습니다.
 

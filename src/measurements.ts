@@ -19,7 +19,7 @@ export const WEB_INTERACTION_FEATURES = ['web.document_view','web.search_open','
   'web.chat_popup_open','web.chat_split_open','web.chat_page_open','web.chat_history_open'] as const;
 const FEATURES = new Set(['web.search','web.chat',...WEB_INTERACTION_FEATURES,
   'mcp.search_wiki','mcp.read_note','mcp.get_context','mcp.get_note_outline','mcp.read_sections','mcp.get_current_metrics',
-  'discord.context','discord.note','discord.outline']);
+  'discord.context','discord.note','discord.outline','mcp.search_notion','mcp.read_notion_page','mcp.get_sources_context']);
 const ratio = (a: number, b: number) => b ? a / b : null;
 const quantile = (values: number[], p: number) => values.length ? [...values].sort((a,b) => a-b)[Math.ceil(values.length*p)-1] : null;
 const number = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;

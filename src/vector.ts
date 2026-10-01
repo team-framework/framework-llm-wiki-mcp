@@ -45,7 +45,7 @@ export class WikiVectorIndex {
   private currentCollection: string | null = null;
   private generation = { state: "starting", sections: 0, chunks: 0, updated_at: null as string | null, error: null as string | null };
   readonly alias: string;
-  constructor(readonly wiki: WikiService, readonly options: VectorOptions) {
+  constructor(readonly wiki: Pick<WikiService, "listNotes">, readonly options: VectorOptions) {
     this.alias = options.alias ?? "framework_wiki";
     if (!/^[a-zA-Z0-9_-]{1,60}$/.test(this.alias)) throw new Error("Invalid vector alias");
   }

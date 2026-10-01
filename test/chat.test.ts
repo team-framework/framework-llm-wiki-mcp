@@ -25,6 +25,26 @@ test("rejects spoofed system history, unbounded history, and unsupported reasoni
   assert.equal(chatInput.safeParse({ message: "hi", history: Array.from({ length: 5 }, () => ({ role: "user", content: "a".repeat(6000) })) }).success, false);
 });
 
+test("follow-up scope corrections retain user history and original Notion citations in inference", async () => {
+  let sent: any; let received: any;
+  const correction = chatInput.parse({ message: "자체 모델만. InSwapper / GHOST 제외", history: [{ role: "user", content: "얼굴 합성 아키텍처, 정량·정성 결과와 다음 방향을 정리해줘" }] });
+  const id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const chat = new WikiChat(async (_query, request) => { received = request; return {
+    evidence: [{ path: `notion/${id}`, title: "FaceSwapS", content: "자체 모델 실험 결과", url: `https://app.notion.com/p/${id}`, source_type: "notion" }],
+    notices: [{ source: "notion", code: "notion_partial_content" }], truncated: true
+  }; }, { url: "http://127.0.0.1", key: "key", fetchImpl: async (_url, init) => {
+    sent = JSON.parse(String(init?.body)); return Response.json({ answer: "자체 모델 결과 [1]", model: "gpt-6-luna" });
+  } });
+  const result = await chat.answer(correction, "member");
+  assert.equal(received, correction);
+  const payload = JSON.parse(sent.input);
+  assert.deepEqual(payload.history, correction.history); assert.equal(payload.question, correction.message);
+  assert.match(sent.instructions, /사용자의 최신 범위 수정·제외 지시/);
+  assert.match(sent.instructions, /결과 비교, 결론, 다음 방향에 다시 넣지/);
+  assert.equal(payload.source_notices[0].code, "notion_partial_content");
+  assert.equal(result.sources[0].url, `https://app.notion.com/p/${id}`); assert.equal(result.sources[0].source_type, "notion");
+});
+
 test("defaults to max reasoning and preserves an explicitly selected level", () => {
   assert.equal(chatInput.parse({ message: "연결 방법" }).reasoning, "max");
   assert.equal(chatInput.parse({ message: "연결 방법", reasoning: "low" }).reasoning, "low");

@@ -5,6 +5,9 @@
 | 도구 | 용도 | 주요 입력 |
 | --- | --- | --- |
 | `get_context` | 관련 섹션의 원문과 검증 정보 | `query`, `limit`, `max_chars`, 검색 필터 |
+| `get_sources_context` | Git 위키와 Notion의 근거를 함께 조회 | `query`, `sources`, `limit`, `max_chars`, 검색 필터 |
+| `search_notion` | 허용된 페이지의 제목 검색 | `query`, `limit` |
+| `read_notion_page` | Notion Markdown 원문과 이어 읽기 | `id`, `max_chars`, `start_block`, `expected_hash`, `subtree_id` |
 | `search_wiki` | 후보 문서와 일치 섹션 찾기 | `query`, `limit`, 검색 필터 |
 | `get_note_outline` | 본문 없이 제목·줄 번호·hash 확인 | `path` |
 | `read_sections` | 선택 섹션과 이어 읽기 | `refs`, `max_chars`, `cursor` |
@@ -15,6 +18,8 @@
 검색 필터는 `domain`, `owner`, `verification`, `include_history`다. `limit`은 1~50, `max_chars`는 1~128000이다. `max_chars`는 JSON 근거의 문자 수를 제한하며 토큰 수나 전체 응답 길이의 상한을 뜻하지 않는다. MCP가 반환한 text JSON을 구조로 읽는다.
 
 ## 이어 읽기
+
+Notion 원문에서 `content_truncated: true`이면 `next_block`을 `start_block`으로, 반환된 `content_hash`를 `expected_hash`로 전달한다. 큰 블록은 `required_chars`에 맞춰 예산을 높인다. `unknown_block_ids`의 구간은 같은 페이지 ID에 `subtree_id`를 지정해 별도로 읽는다. 해당 구간을 읽지 못하면 전체 문서를 읽었다고 쓰지 않는다. 통합 context는 cursor를 지원하지 않으므로 필요한 문서를 `read_notion_page` 또는 Git 섹션 도구로 읽는다.
 
 `truncated: true`와 `next_cursor`가 있으면 질문에 필요한 남은 근거를 `read_sections({refs: [], cursor: next_cursor, max_chars: 6000})`으로 이어 읽는다. cursor를 수정하지 않는다. 같은 cursor가 반복되거나 새 근거가 없으면 중단하고 빈 범위를 밝힌다.
 

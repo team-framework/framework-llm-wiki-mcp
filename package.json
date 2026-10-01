@@ -10,6 +10,7 @@
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "tsx --test test/**/*.test.ts",
     "test:ui": "npm --prefix web run build && tsx scripts/test-wiki-update-ui.ts",
+    "test:notion-ui": "npm --prefix web run build && tsx scripts/test-notion-ui.ts",
     "wiki:patch": "tsx src/patch-cli.ts",
     "benchmark:tokens": "tsx scripts/benchmark-tokens.ts"
   },
