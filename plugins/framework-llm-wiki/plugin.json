@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "framework-llm-wiki",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Search Framework and InnoLive knowledge, read exact source sections, check recorded metrics, and prepare reviewable wiki changes using the existing authenticated Wiki MCP and Wiki Web.",
   "author": { "name": "Framework", "url": "https://github.com/team-framework" },
   "homepage": "https://framework-wiki.chaeyn.com/docs",
@@ -18,7 +18,7 @@
         "capabilities": ["Read"],
         "websiteURL": "https://framework-wiki.chaeyn.com/docs",
         "logo": "./assets/framework.png",
-        "composerIcon": "./assets/composer-icon.svg",
+        "composerIcon": "./assets/composer-icon.png",
         "brandColor": "#1a1a1a",
         "brandColorDark": "#f5f5f5",
         "defaultPrompt": [
