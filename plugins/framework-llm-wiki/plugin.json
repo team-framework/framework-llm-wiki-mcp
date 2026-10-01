@@ -1,0 +1,32 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "framework-llm-wiki",
+  "version": "0.1.0",
+  "description": "Search Framework and InnoLive knowledge, read exact source sections, check recorded metrics, and prepare reviewable wiki changes using the existing authenticated Wiki MCP and Wiki Web.",
+  "author": { "name": "Framework", "url": "https://github.com/team-framework" },
+  "homepage": "https://framework-wiki.chaeyn.com/docs",
+  "repository": "https://github.com/team-framework/framework-llm-wiki-mcp",
+  "keywords": ["framework", "innolive", "wiki", "knowledge", "sources", "metrics"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Framework LLM Wiki",
+        "shortDescription": "팀 위키 검색과 근거 확인",
+        "longDescription": "Framework와 InnoLive의 기술 문서, 결정, 담당자, 일정을 검색합니다. 필요한 Markdown 섹션부터 읽고 검증 상태와 원문 링크를 답변에 붙입니다. 현행 수치와 위키 동기화 상태를 확인하고, 문서 변경안을 기존 Wiki Web에서 검토하도록 안내합니다. 팀 GitHub 로그인이 필요합니다.",
+        "developerName": "Framework",
+        "category": "Productivity",
+        "capabilities": ["Read"],
+        "websiteURL": "https://framework-wiki.chaeyn.com/docs",
+        "logo": "./assets/framework.png",
+        "composerIcon": "./assets/composer-icon.svg",
+        "brandColor": "#1a1a1a",
+        "brandColorDark": "#f5f5f5",
+        "defaultPrompt": [
+          "InnoLive의 현재 구조를 위키 근거와 원문 링크로 설명해줘.",
+          "위키에 기록된 현행 수치와 검증 날짜를 확인해줘.",
+          "이 대화를 위키 변경안으로 정리하고 Wiki Web에서 검토할 수 있게 해줘."
+        ]
+      }
+    }
+  }
+}
