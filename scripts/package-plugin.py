@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 import re
 import struct
-from xml.etree import ElementTree
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -14,7 +13,7 @@ SOURCE = ROOT / "plugins" / "framework-llm-wiki"
 SKILLS = {"wiki-answer", "wiki-metrics", "wiki-change"}
 ENDPOINT = "https://framework-wiki.chaeyn.com/mcp"
 ALLOWED = {
-    "plugin.json", "mcp.json", "README.md", "assets/framework.png", "assets/composer-icon.svg",
+    "plugin.json", "mcp.json", "README.md", "assets/framework.png", "assets/composer-icon.png",
     "skills/wiki-answer/SKILL.md", "skills/wiki-answer/references/retrieval.md",
     "skills/wiki-metrics/SKILL.md", "skills/wiki-change/SKILL.md",
 }
@@ -62,13 +61,13 @@ def validate(source):
         fields = dict(re.findall(r"^(name|description): (.+)$", frontmatter[1], re.M))
         require(fields.get("name") == skill and fields.get("description", "").strip(), f"Invalid skill metadata: {skill}")
 
-    png = files["assets/framework.png"]
-    require(png.startswith(b"\x89PNG\r\n\x1a\n") and png[12:16] == b"IHDR", "Invalid PNG logo")
-    width, height = struct.unpack(">II", png[16:24])
-    require(48 <= width == height <= 4096 and len(png) <= 5 * 1024 * 1024, "Logo must be a square supported image")
-    svg = ElementTree.fromstring(files["assets/composer-icon.svg"])
-    require(svg.tag == "{http://www.w3.org/2000/svg}svg" and svg.get("viewBox") == "0 0 128 128", "Invalid composer icon")
-    require(all(element.tag.rsplit("}", 1)[-1] in {"svg", "rect", "path"} for element in svg.iter()), "Composer icon must contain only static geometry")
+    for name in ("assets/framework.png", "assets/composer-icon.png"):
+        png = files[name]
+        require(png.startswith(b"\x89PNG\r\n\x1a\n") and png[12:16] == b"IHDR", f"Invalid PNG: {name}")
+        width, height = struct.unpack(">II", png[16:24])
+        require(48 <= width == height <= 4096 and len(png) <= 5 * 1024 * 1024, f"Icon must be a square supported image: {name}")
+        if name == "assets/composer-icon.png":
+            require(width == height == 128, "Composer icon must be 128 by 128 pixels")
 
     credential = re.compile(r"-----BEGIN .*PRIVATE KEY-----|(?:gh[pousr]_|github_pat_|sk-(?:proj-|svcacct-)?)[A-Za-z0-9_-]{20,}")
     for name, data in files.items():
