@@ -68,7 +68,13 @@ export class NotionIndex {
         else this.progress.fetched++;
         if (page.truncated) this.progress.partial_content++;
       } catch (error) {
-        this.progress.failed++; this.pages.delete(item.id);
+        this.progress.failed++;
+        const inaccessible = error instanceof NotionError && (error.status === 404 || ["notion_auth_failed", "notion_closed"].includes(error.code));
+        const previous = this.pages.get(item.id);
+        if (previous && !inaccessible) {
+          next.set(item.id, previous);
+          if (previous.truncated) this.progress.partial_content++;
+        } else this.pages.delete(item.id);
         if (error instanceof NotionError && ["notion_auth_failed", "notion_closed"].includes(error.code)) throw error;
       }
       // A private checkpoint avoids fetching completed bodies again after restart.
@@ -86,7 +92,8 @@ export class NotionIndex {
       if (score) scores.set(page.id, score);
     }
     let semanticStatus = "disabled";
-    if (this.semantic && this.state === "ready") {
+    // Existing vectors remain usable while refreshing; every hit still needs a matching section hash.
+    if (this.semantic && this.pages.size > 0) {
       const result = await this.semantic(query, { limit }); semanticStatus = result.status;
       for (const hit of result.hits) {
         if (hit.score < 0.7 || !hit.path.startsWith("notion/")) continue;
@@ -120,11 +127,14 @@ export class SourceContext {
         if (!candidates.length) {
           const ranked = await this.index.candidates(query, Math.min(options.limit ?? 5, 5));
           candidates = ranked.ids; semanticStatus = ranked.semantic_status;
+          let titleOnly = false;
           if (!candidates.length) {
             const found = await this.notion.search(query, Math.min(options.limit ?? 5, 5));
             candidates = found.results.map((page) => page.id); searchTruncated = found.truncated;
+            titleOnly = true;
           }
-          if (this.index.status().state !== "ready") notices.push({ source: "notion", code: "notion_title_search_only" });
+          if (titleOnly) notices.push({ source: "notion", code: "notion_title_search_only" });
+          if (this.index.status().state === "indexing") notices.push({ source: "notion", code: "notion_index_refreshing" });
           if (this.index.status().truncated) notices.push({ source: "notion", code: "notion_index_partial" });
         }
       } catch (error) { notices.push({ source: "notion", code: error instanceof NotionError ? error.code : "notion_unavailable" }); }
@@ -143,7 +153,10 @@ export class SourceContext {
           section_id: section.section_id, content: section.content, content_hash: section.hash, verification: "unverified",
           metadata: { source_type: "notion", source_url: page.url, page_last_edited_at: page.last_edited_time, retrieved_at: page.retrieved_at, note_hash: page.content_hash, truncated: page.truncated, unknown_block_ids: page.unknown_block_ids } });
         if (page.truncated) notices.push({ source: "notion", code: "notion_partial_content" });
-      } catch (error) { this.index.remove(id); notices.push({ source: "notion", code: error instanceof NotionError ? error.code : "notion_unavailable" }); }
+      } catch (error) {
+        if (error instanceof NotionError && (error.status === 404 || ["notion_auth_failed", "notion_closed"].includes(error.code))) this.index.remove(id);
+        notices.push({ source: "notion", code: error instanceof NotionError ? error.code : "notion_unavailable" });
+      }
     }
     const wiki = mode === "notion" ? { evidence: [], truncated: false } : await this.wiki.getContext(query, { ...options, maxChars });
     // Alternate sources so long wiki sections cannot consume the whole budget first.

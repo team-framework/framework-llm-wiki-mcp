@@ -4,7 +4,9 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { NotionError, NotionService } from "../src/notion.js";
-import { NotionIndex } from "../src/sources.js";
+import { NotionIndex, SourceContext } from "../src/sources.js";
+import { parseSections } from "../src/sections.js";
+import type { WikiService } from "../src/wiki.js";
 
 const root = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const id = (n: number) => n.toString(16).padStart(32, "0");
@@ -116,4 +118,42 @@ test("simultaneous sync requests share one traversal", async () => {
   const f = tree(); const index = new NotionIndex(f.service);
   const first = index.sync(); assert.equal(first, index.sync()); await first;
   assert.equal(f.bodies.length, 2105);
+});
+
+test("refreshing preserves hash-checked vectors and does not describe body search as title-only", async () => {
+  const f = tree(); const index = new NotionIndex(f.service); await index.sync();
+  const note = (await index.listNotes()).find((item) => item.path === `notion/${id(2101)}`)!;
+  const section = parseSections(note.content)[0];
+  index.setSemanticSearch(async () => ({ status: "ready", hits: [{ path: note.path, section_id: section.section_id, hash: section.hash, score: 0.9 }] }));
+  let release!: () => void; const gate = new Promise<void>((resolve) => { release = resolve; });
+  const scan = f.service.scanPages.bind(f.service);
+  f.service.scanPages = async function* () { await gate; yield* scan(); };
+  const pending = index.sync(); await new Promise<void>((resolve) => setImmediate(resolve));
+  try {
+    assert.equal(index.status().state, "indexing");
+    const ranked = await index.candidates("semantic-only-query");
+    assert.equal(ranked.semantic_status, "ready"); assert.deepEqual(ranked.ids, [id(2101)]);
+    const wiki = { getContext: async () => ({ evidence: [], truncated: false }) } as unknown as WikiService;
+    const result = await new SourceContext(wiki, f.service, index).getContext("FaceSwapS");
+    assert.ok(result.evidence.some((item) => item.source_type === "notion"));
+    const notices = result.notices as Array<{ code: string }>;
+    assert.ok(notices.some((item) => item.code === "notion_index_refreshing"));
+    assert.ok(!notices.some((item) => item.code === "notion_title_search_only"));
+  } finally { release(); await pending; }
+});
+
+test("transient refresh and evidence errors preserve the last indexed body for retry", async () => {
+  const f = tree(); const index = new NotionIndex(f.service); await index.sync();
+  const prior = (await index.listNotes()).find((item) => item.path === `notion/${id(1)}`)!;
+  f.change(); f.fail(); await index.sync();
+  assert.equal(index.status().pages, 2105); assert.equal(index.status().failed, 1);
+  assert.equal((await index.listNotes()).find((item) => item.path === prior.path)!.content, prior.content);
+  const wiki = { getContext: async () => ({ evidence: [], truncated: false }) } as unknown as WikiService;
+  const result = await new SourceContext(wiki, f.service, index).getContext(`https://www.notion.so/${id(1)}`);
+  assert.equal(result.evidence.length, 0);
+  assert.equal(index.status().pages, 2105);
+  assert.ok((result.notices as Array<{ code: string }>).some((item) => item.code === "notion_unavailable"));
+  f.recover(); await index.sync();
+  assert.equal(index.status().failed, 0);
+  assert.notEqual((await index.listNotes()).find((item) => item.path === prior.path)!.content, prior.content);
 });
