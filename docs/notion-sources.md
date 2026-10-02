@@ -40,7 +40,9 @@ python3 deploy/configure-notion.py --env .env
 
 `/api/status`의 `notion.index`에서 수집 상태와 `discovered`, `fetched`, `reused`, `failed`, `removed`, `partial_content`를 확인한다. 접근 실패나 원문 누락이 있으면 `truncated`가 참이다. 갱신 중에는 확보한 문서를 검색 후보로 사용하고, 답변에 넣기 전에 원문 접근 권한과 변경 내용을 다시 읽는다.
 
-본문 키워드 검색과 별도 `framework_notion` Qdrant 인덱스를 사용한다. Vector 서비스가 없으면 키워드 검색을 사용한다. 인덱스가 준비되지 않았을 때는 제목 검색을 사용하고 `notion_title_search_only`를 반환한다. 토큰이 없으면 기존 위키 조회와 답변 경로를 사용한다.
+본문 키워드 검색과 별도 `framework_notion` Qdrant 인덱스를 사용한다. Vector 서비스가 없으면 키워드 검색을 사용한다. 갱신 중에도 확보한 본문과 해시가 일치하는 벡터를 검색하며 `notion_index_refreshing`을 반환한다. 본문 후보가 없어 제목 검색을 사용한 경우에만 `notion_title_search_only`를 반환한다. 토큰이 없으면 기존 위키 조회와 답변 경로를 사용한다.
+
+일시적인 API 오류가 발생하면 이전 본문을 검색 후보로 보존한다. 답변 근거를 반환할 때는 원문을 다시 읽으며, 이 조회에 실패하면 해당 페이지의 근거를 반환하지 않는다. 삭제·권한 거부·연결 종료를 확인한 페이지는 색인에서 제거한다. 원문 누락과 조회 실패는 `notion_index_partial` 등 상태에 남는다.
 
 ## 웹과 Discord
 
