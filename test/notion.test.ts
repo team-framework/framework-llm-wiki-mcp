@@ -102,3 +102,40 @@ test("a disabled Notion connection preserves existing Wiki retrieval", async () 
   assert.deepEqual(combined.notices, [{ source: "notion", code: "notion_unconfigured" }]);
   await assert.rejects(notion.search(""), (e: unknown) => e instanceof NotionError && e.code === "notion_unconfigured");
 });
+
+test('search reuses ancestors only within a query and rechecks revocation next query', async () => {
+  let allowed = true; let parentReads = 0;
+  const pages = [child, subtree].map(id => ({ id, parent: { type: 'database_id', database_id: database } }));
+  const service = new NotionService({ token: 'key', rootIds: [root], intervalMs: 0, fetchImpl: async url => {
+    const path = new URL(String(url)).pathname;
+    if (path === '/v1/search') return Response.json({ results: pages, has_more: false });
+    parentReads++;
+    if (!allowed) return new Response('', { status: 404 });
+    return Response.json(path.includes(database) ? { id: database, parent: { type: 'page_id', page_id: root } } : { id: root });
+  }});
+  assert.equal((await service.search('AI')).results.length, 2); assert.equal(parentReads, 2);
+  // One database fetch and one root fetch, shared by both child pages.
+  allowed = false; assert.equal((await service.search('AI')).results.length, 0); assert.equal(parentReads, 4);
+});
+
+test('interactive title search bounds out-of-root candidates and reports partial results', async () => {
+  let parentReads = 0;
+  const pages = [root, ...Array.from({ length: 10 }, (_, i) => ({ id: String(i+1).padStart(32,'0'), parent: { type:'workspace', workspace:true } }))];
+  const service = new NotionService({ token:'key',rootIds:[root],intervalMs:0,searchMaxCandidates:3,fetchImpl:async url => {
+    if (new URL(String(url)).pathname !== '/v1/search') parentReads++;
+    return Response.json({results:pages.map(p=>typeof p==='string'?{id:p}:p),has_more:false});
+  }});
+  const result = await service.search('AI');
+  assert.deepEqual(result.results.map(p=>p.id),[root]);assert.equal(result.truncated,true);assert.equal(parentReads,0);
+});
+
+test('search deadline keeps verified results and bounds retries', async () => {
+  let clock=0;let calls=0;
+  const service = new NotionService({token:'key',rootIds:[root],intervalMs:0,searchBudgetMs:1000,now:()=>clock,pause:async ms=>{clock+=ms;},fetchImpl:async url=>{
+    calls++;
+    if(new URL(String(url)).pathname==='/v1/search')return Response.json({results:[{id:root},{id:child,parent:{type:'database_id',database_id:database}}],has_more:false});
+    return new Response('',{status:429,headers:{'Retry-After':'300'}});
+  }});
+  const result=await service.search('AI');assert.deepEqual(result.results.map(p=>p.id),[root]);assert.equal(result.truncated,true);
+  assert.equal(clock,1000);assert.equal(calls,2);
+});
