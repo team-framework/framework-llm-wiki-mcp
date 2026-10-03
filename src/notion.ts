@@ -26,7 +26,7 @@ export class NotionError extends Error {
   constructor(readonly status: number, readonly code: string) { super(code); }
 }
 export type NotionPage = { id: string; title: string; url: string; last_edited_time: string; retrieved_at: string; content: string; content_hash: string; truncated: boolean; unknown_block_ids: string[] };
-export type NotionOptions = { token?: string; rootIds?: string[]; fetchImpl?: typeof fetch; now?: () => number; pause?: (ms: number) => Promise<void>; cacheMs?: number; intervalMs?: number };
+export type NotionOptions = { token?: string; rootIds?: string[]; fetchImpl?: typeof fetch; now?: () => number; pause?: (ms: number) => Promise<void>; cacheMs?: number; intervalMs?: number; searchBudgetMs?: number; searchMaxCandidates?: number };
 type Entity = { id: string; object?: string; parent?: Record<string, unknown>; properties?: Record<string, any>; archived?: boolean; in_trash?: boolean; last_edited_time?: string; data_sources?: Array<{ id: string }> };
 export type NotionSummary = { id: string; title: string; url: string; last_edited_time: string };
 export type NotionScannedPage = NotionSummary & { load: (previous?: NotionPage) => Promise<NotionPage> };
@@ -45,13 +45,20 @@ export class NotionService {
   private now() { return (this.options.now ?? Date.now)(); }
   private pause(ms: number) { return (this.options.pause ?? ((delay) => new Promise<void>((resolve) => setTimeout(resolve, delay))))(ms); }
 
-  private async request(endpoint: string, body?: unknown): Promise<any> {
+  private async request(endpoint: string, body?: unknown, deadline?: number): Promise<any> {
+    const remaining = () => {
+      const ms = deadline === undefined ? 15_000 : Math.min(15_000, deadline - this.now());
+      if (ms <= 0) throw new NotionError(504, "notion_search_budget");
+      return Math.max(1, Math.ceil(ms));
+    };
+    remaining();
     if (!this.enabled) throw new NotionError(503, "notion_unconfigured");
     if (this.abort.signal.aborted) throw new NotionError(503, "notion_closed");
     // Share a start-time limiter across searches, reads, retries, and index refreshes.
     for (let attempt = 0; attempt < 3; attempt++) {
       const slot = this.queue.then(async () => {
-        await this.pause(Math.max(0, this.nextRequestAt - this.now()));
+        await this.pause(Math.min(remaining(), Math.max(0, this.nextRequestAt - this.now())));
+        remaining();
         if (this.abort.signal.aborted) throw new NotionError(503, "notion_closed");
         this.nextRequestAt = this.now() + (this.options.intervalMs ?? 350);
       });
@@ -61,13 +68,13 @@ export class NotionService {
         response = await (this.options.fetchImpl ?? fetch)(new URL(endpoint, "https://api.notion.com"), {
           method: body === undefined ? "GET" : "POST", redirect: "error",
           headers: { Authorization: `Bearer ${this.options.token}`, "Notion-Version": NOTION_VERSION, "Content-Type": "application/json" },
-          body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.any([this.abort.signal, AbortSignal.timeout(15_000)])
+          body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.any([this.abort.signal, AbortSignal.timeout(remaining())])
         });
-      } catch { throw new NotionError(502, "notion_unavailable"); }
+      } catch { remaining(); throw new NotionError(502, "notion_unavailable"); }
       if ((response.status === 429 || response.status >= 500) && attempt < 2) {
         const retry = Number(response.headers.get("retry-after"));
         await response.body?.cancel();
-        await this.pause(Math.min(5_000, Math.max(350, Number.isFinite(retry) ? retry * 1000 : 350 * (attempt + 1))));
+        await this.pause(Math.min(remaining(), 5_000, Math.max(350, Number.isFinite(retry) ? retry * 1000 : 350 * (attempt + 1))));
         continue;
       }
       if (!response.ok) {
@@ -79,13 +86,13 @@ export class NotionService {
         const reader = response.body?.getReader(); if (!reader) throw new Error();
         const chunks: Uint8Array[] = []; let size = 0;
         while (true) { const { done, value } = await reader.read(); if (done) break; size += value.length; if (size > 4_000_000) { await reader.cancel(); throw new Error(); } chunks.push(value); }
-        return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-      } catch { throw new NotionError(502, "notion_invalid_response"); }
+        remaining(); return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      } catch (error) { if (error instanceof NotionError) throw error; remaining(); throw new NotionError(502, "notion_invalid_response"); }
     }
     throw new NotionError(502, "notion_unavailable");
   }
   private active(entity: Entity) { if (!entity.id || entity.archived || entity.in_trash) throw new NotionError(404, "notion_not_accessible"); }
-  private async scoped(page: Entity): Promise<void> {
+  private async scoped(page: Entity, ancestors?: Map<string, Entity>, deadline?: number): Promise<void> {
     this.active(page); let current = page; const seen = new Set<string>();
     while (true) {
       const id = notionId(current.id); if (seen.has(id)) break; seen.add(id);
@@ -95,7 +102,9 @@ export class NotionService {
       if (typeof parentId !== "string") break;
       const paths: Record<string, string> = { page_id: "pages", database_id: "databases", data_source_id: "data_sources", block_id: "blocks" };
       if (!paths[type]) break;
-      current = await this.request(`/v1/${paths[type]}/${notionId(parentId)}`); this.active(current);
+      const path = `/v1/${paths[type]}/${notionId(parentId)}`;
+      current = ancestors?.get(path) ?? await this.request(path, undefined, deadline);
+      this.active(current); ancestors?.set(path, current);
     }
     throw new NotionError(404, "notion_outside_roots");
   }
@@ -184,23 +193,33 @@ export class NotionService {
   }
   async search(query: string, limit = 10) {
     const results: NotionSummary[] = []; const seen = new Set<string>();
-    let cursor: string | undefined; let hasMore = false;
+    // Reuse freshly checked ancestors within one search, never across searches or reads.
+    const ancestors = new Map<string, Entity>();
+    const deadline = this.now() + (this.options.searchBudgetMs ?? 12_000);
+    const maxCandidates = this.options.searchMaxCandidates ?? 40;
+    let examined = 0; let cursor: string | undefined; let hasMore = false;
     const cursors = new Set<string>();
-    do {
-      const page = await this.request("/v1/search", { ...(query.trim() ? { query: query.trim() } : {}), filter: { property: "object", value: "page" }, sort: { direction: "descending", timestamp: "last_edited_time" }, page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) });
-      if (!Array.isArray(page.results)) throw new NotionError(502, "notion_invalid_response");
-      hasMore = Boolean(page.has_more); cursor = typeof page.next_cursor === "string" ? page.next_cursor : undefined;
-      for (const entity of page.results as Entity[]) {
-        try { await this.scoped(entity); }
-        catch (error) { if (error instanceof NotionError && error.status === 404) continue; throw error; }
-        const id = notionId(entity.id); if (seen.has(id)) continue; seen.add(id);
-        results.push(this.summary(entity));
-        if (results.length >= limit) return { results, truncated: hasMore || page.results.indexOf(entity) < page.results.length - 1 };
-      }
-      if (!hasMore) break;
-      if (!cursor || cursors.has(cursor)) throw new NotionError(502, "notion_invalid_cursor");
-      cursors.add(cursor);
-    } while (true);
+    try {
+      do {
+        const page = await this.request("/v1/search", { ...(query.trim() ? { query: query.trim() } : {}), filter: { property: "object", value: "page" }, sort: { direction: "descending", timestamp: "last_edited_time" }, page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }, deadline);
+        if (!Array.isArray(page.results)) throw new NotionError(502, "notion_invalid_response");
+        hasMore = Boolean(page.has_more); cursor = typeof page.next_cursor === "string" ? page.next_cursor : undefined;
+        for (const entity of page.results as Entity[]) {
+          const id = notionId(entity.id); if (seen.has(id)) continue; seen.add(id);
+          if (examined++ >= maxCandidates || this.now() >= deadline) return { results, truncated: true };
+          try { await this.scoped(entity, ancestors, deadline); }
+          catch (error) { if (error instanceof NotionError && error.status === 404) continue; throw error; }
+          results.push(this.summary(entity));
+          if (results.length >= limit) return { results, truncated: hasMore || page.results.indexOf(entity) < page.results.length - 1 };
+        }
+        if (!hasMore) break;
+        if (!cursor || cursors.has(cursor)) throw new NotionError(502, "notion_invalid_cursor");
+        cursors.add(cursor);
+      } while (true);
+    } catch (error) {
+      if (!(error instanceof NotionError && error.code === "notion_search_budget")) throw error;
+      return { results, truncated: true };
+    }
     return { results, truncated: hasMore };
   }
   async read(value: string, previous?: NotionPage): Promise<NotionPage> {
