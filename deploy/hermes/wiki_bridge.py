@@ -1,4 +1,4 @@
-"""Private wiki inference endpoint. Reuses Hermes OAuth; exposes no agent tools."""
+"""Private wiki inference endpoint. Reuses Hermes Claude OAuth; exposes no agent tools."""
 import hmac
 import json
 import os
@@ -7,11 +7,15 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.environ.get("HERMES_AGENT_PATH", "/home/chaeyn/.hermes/hermes-agent"))
-from hermes_cli.auth import resolve_codex_runtime_credentials
-from agent.auxiliary_client import _codex_cloudflare_headers
-from openai import OpenAI
+os.environ.setdefault("HERMES_HOME", os.path.expanduser("~/.hermes"))
+import hermes_bootstrap  # noqa: F401  Hermes runtime site-packages (anthropic SDK)
+from hermes_cli.env_loader import load_hermes_dotenv
+from agent.anthropic_adapter import build_anthropic_client, build_anthropic_kwargs, create_anthropic_message
+from agent.anthropic_credentials import anthropic_route_is_oauth, resolve_anthropic_token
 
-MODEL = "gpt-6-luna"
+load_hermes_dotenv()
+MODEL = os.environ.get("HERMES_WIKI_MODEL", "claude-opus-5-5")
+BASE_URL = "https://api.anthropic.com"
 EFFORTS = {"none", "low", "medium", "high", "xhigh", "max"}
 KEY = os.environ["HERMES_WIKI_KEY"]
 if len(KEY) < 32:
@@ -20,39 +24,37 @@ LOCK = threading.BoundedSemaphore(2)
 
 
 def answer(body):
-    credentials = resolve_codex_runtime_credentials()
-    with OpenAI(api_key=credentials["api_key"], base_url=credentials["base_url"],
-                default_headers=_codex_cloudflare_headers(credentials["api_key"]),
-                timeout=150, max_retries=0) as client:
-        timer = threading.Timer(170, client.close)
-        timer.daemon = True
-        timer.start()
-        try:
-            parts = []
-            # No terminal, filesystem, memory, MCP tools, or persistent conversation.
-            with client.responses.stream(
-                model=MODEL, instructions=body["instructions"],
-                input=[{"role": "user", "content": body["input"]}],
-                reasoning={"effort": body.get("reasoning", "max")}, service_tier="priority", store=False,
-            ) as stream:
-                for event in stream:
-                    if event.type == "response.output_text.delta":
-                        parts.append(event.delta)
-                        if sum(map(len, parts)) > 60_000:
-                            raise ValueError("answer_too_long")
-                response = stream.get_final_response()
-            if response.status != "completed":
-                raise ValueError("incomplete_answer")
-            text = "".join(parts) or response.output_text
-            if not text.strip():
-                raise ValueError("empty_answer")
-            usage = response.usage.model_dump() if response.usage else None
-            print(json.dumps({"event": "wiki_answer_completed", "model": response.model,
-                              "reasoning": body.get("reasoning", "max"),
-                              "requested_tier": "priority", "service_tier": response.service_tier, "usage": usage}), flush=True)
-            return {"answer": text, "model": response.model, "reasoning": body.get("reasoning", "max"), "usage": usage, "service_tier": response.service_tier, "requested_tier": "priority"}
-        finally:
-            timer.cancel()
+    token = resolve_anthropic_token(model=MODEL)
+    if not token:
+        raise ValueError("no_claude_credentials")
+    effort = body.get("reasoning", "max")
+    client = build_anthropic_client(token, BASE_URL, timeout=150)
+    timer = threading.Timer(170, client.close)
+    timer.daemon = True
+    timer.start()
+    try:
+        # No terminal, filesystem, memory, MCP tools, or persistent conversation.
+        kwargs = build_anthropic_kwargs(
+            MODEL, [{"role": "system", "content": body["instructions"]}, {"role": "user", "content": body["input"]}],
+            None, None, {"enabled": False} if effort == "none" else {"effort": effort},
+            is_oauth=anthropic_route_is_oauth(BASE_URL, token, provider="anthropic"), base_url=BASE_URL,
+        )
+        response = create_anthropic_message(client, kwargs)
+        if response.stop_reason not in ("end_turn", "stop_sequence"):
+            raise ValueError("incomplete_answer")
+        text = "".join(block.text for block in response.content if block.type == "text")
+        if len(text) > 60_000:
+            raise ValueError("answer_too_long")
+        if not text.strip():
+            raise ValueError("empty_answer")
+        usage = response.usage.model_dump() if response.usage else None
+        tier = getattr(response.usage, "service_tier", None)
+        print(json.dumps({"event": "wiki_answer_completed", "model": response.model,
+                          "reasoning": effort, "service_tier": tier, "usage": usage}), flush=True)
+        return {"answer": text, "model": response.model, "reasoning": effort, "usage": usage, "service_tier": tier}
+    finally:
+        timer.cancel()
+        client.close()
 
 
 class Handler(BaseHTTPRequestHandler):
