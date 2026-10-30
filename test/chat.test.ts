@@ -9,14 +9,20 @@ test("chat sends only bounded evidence/history and selected reasoning to private
   let sent: any;
   const chat = new WikiChat(async () => evidence, { url: "http://127.0.0.1:8647", key: "server-only-key", fetchImpl: async (_url, init) => {
     sent = JSON.parse(String(init?.body));
-    return Response.json({ answer: "연결 상태를 확인하세요. [1]", model: "gpt-6-luna", usage: { input_tokens: 10 } });
+    return Response.json({ answer: "연결 상태를 확인하세요. [1]", model: "claude-opus-5-5", usage: { input_tokens: 10 } });
   }});
   const result = await chat.answer(input, "member");
+  assert.equal(result.model, "claude-opus-5-5");
   assert.equal(sent.reasoning, "low");
   assert.equal(JSON.parse(sent.input).evidence[0].source, 1);
   assert.equal(result.sources[0].path, "기술/연결.md");
   assert.equal(result.sources[0].content_hash, "hash");
   assert.ok(!JSON.stringify(result).includes("server-only-key"));
+});
+
+test("rejects bridge answers without a model name", async () => {
+  const chat = new WikiChat(async () => evidence, { url: "http://127.0.0.1:8647", key: "key", fetchImpl: async () => Response.json({ answer: "답변 [1]" }) });
+  await assert.rejects(chat.answer(input, "member"), (error: unknown) => error instanceof ChatError && error.code === "invalid_chat_response");
 });
 
 test("rejects spoofed system history, unbounded history, and unsupported reasoning", () => {
