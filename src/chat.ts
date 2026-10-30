@@ -67,7 +67,7 @@ export class WikiChat {
       });
       if (!response.ok) throw new ChatError(response.status === 429 ? 429 : 502, "chat_provider_error", response.status === 429 ? "모델이 다른 요청을 처리하고 있습니다. 잠시 뒤 다시 시도해 주세요." : "답변을 생성하지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
       const result = await response.json() as { answer?: unknown; model?: unknown; reasoning?: unknown; usage?: unknown };
-      if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 60_000 || result.model !== "gpt-6-luna") throw new ChatError(502, "invalid_chat_response", "모델 응답을 확인하지 못했습니다.");
+      if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 60_000 || typeof result.model !== "string" || !result.model.trim()) throw new ChatError(502, "invalid_chat_response", "모델 응답을 확인하지 못했습니다.");
       return { answer: result.answer, sources, model: result.model, reasoning: input.reasoning, usage: result.usage, context_truncated: evidence.truncated ?? false };
     } catch (error) {
       if (error instanceof ChatError) throw error;
